@@ -41,7 +41,7 @@ import {
     rasterizeTriangles,
     WALKABLE_AREA,
     buildTile,
-} from 'navcat';
+} from 'navcat-zup';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
 import * as THREE from 'three/webgpu';
@@ -52,8 +52,8 @@ import {
     createNavMeshHelper,
     createNavMeshPolyHelper,
     createSearchNodesHelper,
-} from 'navcat/three';
-import { getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup/three';
+import { getPositionsAndIndices } from 'navcat-zup/three';
 import { loadGLTF } from './common/load-gltf';
 import { createFlag } from './common/flag';
 
@@ -278,8 +278,8 @@ function generateNavMesh(input: NavMeshInput, options: NavMeshOptions): NavMeshR
 
     /* create a single tile nav mesh */
     const nav = createNavMesh();
-    nav.tileWidth = polyMesh.bounds[3] - polyMesh.bounds[0];
-    nav.tileHeight = polyMesh.bounds[5] - polyMesh.bounds[2];
+    nav.tileWidth = polyMesh.bounds[4] - polyMesh.bounds[1];
+    nav.tileHeight = polyMesh.bounds[3] - polyMesh.bounds[0];
     box3.min(nav.origin, polyMesh.bounds);
 
     const tilePolys = polyMeshToTilePolys(polyMesh);
@@ -316,6 +316,9 @@ function generateNavMesh(input: NavMeshInput, options: NavMeshOptions): NavMeshR
 /* setup example scene */
 const container = document.getElementById('root')!;
 
+// z-up world
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
 // scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
@@ -351,12 +354,12 @@ window.addEventListener('resize', onWindowResize);
 
 await renderer.init();
 
-camera.position.set(-20, 20, -10);
+camera.position.set(-10, -20, 20);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 
-orbitControls.target.set(-15, 1, 0);
+orbitControls.target.set(0, -15, 1);
 
 const model = await loadGLTF('./models/doors-and-keys.glb');
 scene.add(model.scene);
@@ -383,7 +386,7 @@ for (const doorObject of doorObjects) {
 
     doors.push({
         box: [
-            box3.min.x, box3.min.y - 0.5, box3.min.z,
+            box3.min.x, box3.min.y, box3.min.z - 0.5,
             box3.max.x, box3.max.y, box3.max.z,
         ],
         doorId: doorObject.userData.door,
@@ -468,16 +471,16 @@ const debugConfig = {
 };
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 const heightfieldHelper = createHeightfieldHelper(navMeshResult.intermediates.heightfield);
-heightfieldHelper.object.position.y += 0.05;
+heightfieldHelper.object.position.z += 0.05;
 scene.add(heightfieldHelper.object);
 
 const compactHeightfieldHelper = createCompactHeightfieldSolidHelper(navMeshResult.intermediates.compactHeightfield);
 scene.add(compactHeightfieldHelper.object);
-compactHeightfieldHelper.object.position.y += 0.1;
+compactHeightfieldHelper.object.position.z += 0.1;
 
 const gui = new GUI();
 
@@ -533,8 +536,8 @@ keysFolder.add(keysState, 'key2').name('Key 2').onChange(updateKeys);
 keysFolder.open();
 
 /* find path */
-let start: Vec3 = [-20.6, 0.2, -6.8];
-let end: Vec3 = [-5.4, 0.3, -2.9];
+let start: Vec3 = [-6.8, -20.6, 0.2];
+let end: Vec3 = [-2.9, -5.4, 0.3];
 const halfExtents: Vec3 = [1, 1, 1];
 
 type Visual = { object: THREE.Object3D; dispose: () => void };
@@ -579,7 +582,7 @@ function updatePath() {
             const node = nodePath.path[i];
             if (getNodeRefType(node) === NodeType.POLY) {
                 const polyHelper = createNavMeshPolyHelper(navMesh, node);
-                polyHelper.object.position.y += 0.2;
+                polyHelper.object.position.z += 0.2;
                 addVisual(polyHelper);
             }
         }

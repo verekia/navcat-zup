@@ -220,8 +220,8 @@ function generateFlatNavMesh(input: NavMeshGenerationInput, options: NavMeshGene
     );
 
     const navMesh = createNavMesh();
-    navMesh.tileWidth = polyMesh.bounds[3] - polyMesh.bounds[0];
-    navMesh.tileHeight = polyMesh.bounds[5] - polyMesh.bounds[2];
+    navMesh.tileWidth = polyMesh.bounds[4] - polyMesh.bounds[1];
+    navMesh.tileHeight = polyMesh.bounds[3] - polyMesh.bounds[0];
     box3.min(navMesh.origin, polyMesh.bounds);
 
     const tilePolys = polyMeshToTilePolys(polyMesh);

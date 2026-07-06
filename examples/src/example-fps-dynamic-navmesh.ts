@@ -32,17 +32,17 @@ import {
     rasterizeTriangles,
     removeTile,
     WALKABLE_AREA,
-} from 'navcat';
+} from 'navcat-zup';
 import {
     createNavMeshOffMeshConnectionsHelper,
     createNavMeshTileHelper,
     type DebugObject,
     getPositionsAndIndices,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import { PointerLockControls } from 'three/examples/jsm/Addons.js';
 import * as THREE from 'three/webgpu';
 import { loadGLTF } from './common/load-gltf';
-import { crowd } from 'navcat/blocks';
+import { crowd } from 'navcat-zup/blocks';
 
 /* init rapier */
 await Rapier.init();
@@ -72,6 +72,8 @@ const navMeshConfig = {
 };
 
 /* setup example scene */
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
 const container = document.getElementById('root')!;
 
 // scene
@@ -80,7 +82,17 @@ scene.background = new THREE.Color(0x202020);
 
 // camera
 const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(-2, 10, 10);
+
+// z-up camera rig: PointerLockControls yaws about the camera's local +Y axis (hardcoded y-up
+// YXZ euler math on camera.quaternion). Parenting the camera in a rig rotated +90 degrees about
+// X maps the camera's local +Y axis onto world +Z, so yaw happens about world up and pitch about
+// the camera's local right axis. The rig carries the camera's world translation; the camera
+// stays at the rig's local origin, so the camera's world position equals cameraRig.position.
+const cameraRig = new THREE.Group();
+cameraRig.rotation.x = Math.PI / 2;
+cameraRig.add(camera);
+scene.add(cameraRig);
+cameraRig.position.set(10, -2, 10);
 
 // renderer
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -437,16 +449,16 @@ const extractMeshWorldTriangles = (mesh: THREE.Mesh) => {
 
 const offMeshConnections: OffMeshConnectionParams[] = [
     {
-        start: [-2.997126927323623, 4.200000002980238, -24.900715969043745],
-        end: [-3.1817298705067922, 4.9569690329294436e-15, -22.32420388958813],
+        start: [-24.900715969043745, -2.997126927323623, 4.200000002980238],
+        end: [-22.32420388958813, -3.1817298705067922, 4.9569690329294436e-15],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [-11.412625930873357, 4.200000002980238, -25.209792275623663],
-        end: [-11.636344760114076, 5.055820018452261e-15, -22.7693891511539],
+        start: [-25.209792275623663, -11.412625930873357, 4.200000002980238],
+        end: [-22.7693891511539, -11.636344760114076, 5.055820018452261e-15],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         flags: 0xffffff,
@@ -458,7 +470,7 @@ const offMeshConnections: OffMeshConnectionParams[] = [
 const physicsState = initPhysics(levelPositions, levelIndices);
 
 /* create player character controller */
-const playerState = initPlayer(physicsState.world, new THREE.Vector3(0, 2, 5));
+const playerState = initPlayer(physicsState.world, new THREE.Vector3(5, 0, 2));
 
 /* Initialize dynamic navmesh */
 navMeshState = initDynamicNavMesh(navMeshConfig, levelPositions, levelIndices, meshBounds, offMeshConnections, physicsState, scene);
@@ -562,7 +574,7 @@ function initPhysics(
     levelIndices: Uint32Array,
 ): PhysicsState {
     // Create physics world
-    const world = new Rapier.World(new Rapier.Vector3(0, -9.81, 0));
+    const world = new Rapier.World(new Rapier.Vector3(0, 0, -9.81));
     
     // Create fixed trimesh collider for level
     const levelColliderDesc = Rapier.ColliderDesc.trimesh(
@@ -625,13 +637,16 @@ function initPlayer(
 
     // Create kinematic character controller
     const characterController = physicsWorld.createCharacterController(0.01);
+    characterController.setUp({ x: 0, y: 0, z: 1 });
     characterController.enableAutostep(0.5, 0.2, true);
     characterController.enableSnapToGround(0.5);
     characterController.setMaxSlopeClimbAngle(45 * Math.PI / 180);
     characterController.setMinSlopeSlideAngle(30 * Math.PI / 180);
 
     // Create capsule collider for player
+    // rapier capsules are y-up by default; rotate the collider +90 degrees about X so its axis is +Z
     const playerColliderDesc = Rapier.ColliderDesc.capsule(playerHeight / 2 - playerRadius, playerRadius);
+    playerColliderDesc.setRotation({ x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 });
     const playerRigidBodyDesc = Rapier.RigidBodyDesc.kinematicPositionBased().setTranslation(
         initialPosition.x,
         initialPosition.y,
@@ -712,7 +727,7 @@ function updatePlayer(
         
         if (_moveDirection.length() > 0) {
             // Transform direction to camera space (horizontal only)
-            _cameraDirection.y = 0;
+            _cameraDirection.z = 0;
             _cameraDirection.normalize();
             
             _cameraRight.crossVectors(camera.up, _cameraDirection).normalize();
@@ -728,13 +743,13 @@ function updatePlayer(
         
         // Apply gravity to vertical velocity
         const gravity = -20.0;
-        state.velocity.y += gravity * deltaTime;
-        
+        state.velocity.z += gravity * deltaTime;
+
         // Combine horizontal and vertical velocity
         _desiredMovement.set(
             _horizontalVelocity.x * deltaTime,
-            state.velocity.y * deltaTime,
-            _horizontalVelocity.z * deltaTime
+            _horizontalVelocity.y * deltaTime,
+            state.velocity.z * deltaTime
         );
         
         // Compute collision-corrected movement
@@ -761,14 +776,14 @@ function updatePlayer(
         state.isGrounded = controller.computedGrounded();
         
         // Reset vertical velocity if grounded
-        if (state.isGrounded && state.velocity.y < 0) {
-            state.velocity.y = 0;
+        if (state.isGrounded && state.velocity.z < 0) {
+            state.velocity.z = 0;
         }
     }
-    
-    // Update camera position (eye height)
-    camera.position.copy(state.position);
-    camera.position.y += 0.6; // eye offset from center
+
+    // Update camera position (eye height) - the rig carries the camera's world translation
+    cameraRig.position.copy(state.position);
+    cameraRig.position.z += 0.6; // eye offset from center
 }
 
 function spawnBox(
@@ -783,13 +798,13 @@ function spawnBox(
     const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
     const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
     boxMesh.position.copy(position);
-    boxMesh.rotation.set(0, yRotation, 0);
+    boxMesh.rotation.set(0, 0, yRotation);
 
     scene.add(boxMesh);
     raycastTargets.push(boxMesh);
 
     // Create physics body
-    const boxColliderDesc = Rapier.ColliderDesc.cuboid(BOX_SIZE_X / 2, BOX_HEIGHT / 2, BOX_SIZE_Z / 2);
+    const boxColliderDesc = Rapier.ColliderDesc.cuboid(BOX_SIZE_Z / 2, BOX_SIZE_X / 2, BOX_HEIGHT / 2);
     boxColliderDesc.setRestitution(0.1);
     boxColliderDesc.setFriction(0.5);
     boxColliderDesc.setDensity(1.0);
@@ -802,7 +817,7 @@ function spawnBox(
     
     // Apply rotation to rigid body
     const quaternion = new THREE.Quaternion();
-    quaternion.setFromEuler(new THREE.Euler(0, yRotation, 0));
+    quaternion.setFromEuler(new THREE.Euler(0, 0, yRotation));
     boxRigidBodyDesc.setRotation({ x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w });
 
     const boxRigidBody = navMeshState.physics.world.createRigidBody(boxRigidBodyDesc);
@@ -867,7 +882,7 @@ function spawnRamp(
     const rampMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
     const rampMesh = new THREE.Mesh(rampGeometry, rampMaterial);
     rampMesh.position.copy(position);
-    rampMesh.rotation.set(0, yRotation, 0);
+    rampMesh.rotation.set(0, 0, yRotation);
 
     scene.add(rampMesh);
     raycastTargets.push(rampMesh);
@@ -886,7 +901,7 @@ function spawnRamp(
     if (!rampColliderDesc) {
         // Fallback to cuboid if convex hull fails
         console.warn('Failed to create convex hull, using cuboid');
-        const rampColliderDesc = Rapier.ColliderDesc.cuboid(RAMP_WIDTH / 2, RAMP_HEIGHT / 2, RAMP_DEPTH / 2);
+        const rampColliderDesc = Rapier.ColliderDesc.cuboid(RAMP_DEPTH / 2, RAMP_WIDTH / 2, RAMP_HEIGHT / 2);
         rampColliderDesc.setRestitution(0.1);
         rampColliderDesc.setFriction(0.8);
         rampColliderDesc.setDensity(100.0); // Heavy to prevent tipping
@@ -901,7 +916,7 @@ function spawnRamp(
     
     // Apply rotation to rigid body
     const quaternion = new THREE.Quaternion();
-    quaternion.setFromEuler(new THREE.Euler(0, yRotation, 0));
+    quaternion.setFromEuler(new THREE.Euler(0, 0, yRotation));
     rampRigidBodyDesc.setRotation({ x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w });
 
     const rampRigidBody = navMeshState.physics.world.createRigidBody(rampRigidBodyDesc);
@@ -966,7 +981,7 @@ function spawnPlatform(
     const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x0088ff });
     const platformMesh = new THREE.Mesh(platformGeometry, platformMaterial);
     platformMesh.position.copy(position);
-    platformMesh.rotation.set(0, yRotation, 0);
+    platformMesh.rotation.set(0, 0, yRotation);
 
     scene.add(platformMesh);
     raycastTargets.push(platformMesh);
@@ -975,7 +990,7 @@ function spawnPlatform(
     platformMesh.updateMatrixWorld(true);
 
     // Create physics body (static/fixed)
-    const platformColliderDesc = Rapier.ColliderDesc.cuboid(PLATFORM_WIDTH / 2, PLATFORM_HEIGHT / 2, PLATFORM_DEPTH / 2);
+    const platformColliderDesc = Rapier.ColliderDesc.cuboid(PLATFORM_DEPTH / 2, PLATFORM_WIDTH / 2, PLATFORM_HEIGHT / 2);
     platformColliderDesc.setRestitution(0.1);
     platformColliderDesc.setFriction(0.8);
     
@@ -984,7 +999,7 @@ function spawnPlatform(
     
     // Apply rotation to rigid body
     const quaternion = new THREE.Quaternion();
-    quaternion.setFromEuler(new THREE.Euler(0, yRotation, 0));
+    quaternion.setFromEuler(new THREE.Euler(0, 0, yRotation));
     platformRigidBodyDesc.setRotation({ x: quaternion.x, y: quaternion.y, z: quaternion.z, w: quaternion.w });
 
     const platformRigidBody = navMeshState.physics.world.createRigidBody(platformRigidBodyDesc);
@@ -1218,17 +1233,18 @@ function initDynamicNavMesh(
 
     for (let tx = 0; tx < tileWidth; tx++) {
         for (let ty = 0; ty < tileHeight; ty++) {
-            const minX = meshBounds[0] + tx * tileSizeWorld;
-            const minY = meshBounds[1];
-            const minZ = meshBounds[2] + ty * tileSizeWorld;
-            const maxX = meshBounds[0] + (tx + 1) * tileSizeWorld;
-            const maxY = meshBounds[4];
-            const maxZ = meshBounds[2] + (ty + 1) * tileSizeWorld;
+            // z-up: tileX (tx) spans world Y, tileY (ty) spans world X, vertical is world Z
+            const minX = meshBounds[0] + ty * tileSizeWorld;
+            const minY = meshBounds[1] + tx * tileSizeWorld;
+            const minZ = meshBounds[2];
+            const maxX = meshBounds[0] + (ty + 1) * tileSizeWorld;
+            const maxY = meshBounds[1] + (tx + 1) * tileSizeWorld;
+            const maxZ = meshBounds[5];
             const bounds: Box3 = [minX, minY, minZ, maxX, maxY, maxZ];
             const key = serTileKey(tx, ty);
             tileBoundsCache.set(key, bounds);
 
-            const expandedBounds: Box3 = [minX - borderOffset, minY, minZ - borderOffset, maxX + borderOffset, maxY, maxZ + borderOffset];
+            const expandedBounds: Box3 = [minX - borderOffset, minY - borderOffset, minZ, maxX + borderOffset, maxY + borderOffset, maxZ];
             tileExpandedBoundsCache.set(key, expandedBounds);
 
             const trianglesInBox: number[] = [];
@@ -1472,7 +1488,7 @@ function buildTileAtCoords(
         const t = state.navMesh.tiles[tileId];
         if (t.tileX === tx && t.tileY === ty) {
             const newTileHelper = createNavMeshTileHelper(t);
-            newTileHelper.object.position.y += 0.05;
+            newTileHelper.object.position.z += 0.05;
             scene.add(newTileHelper.object);
             state.visuals.tileHelpers.set(tileKeyStr, newTileHelper);
             
@@ -1545,10 +1561,11 @@ function tilesForAABB(state: DynamicNavMeshState, min: Vec3, max: Vec3): Array<[
         return [];
     }
     
-    const rawMinX = Math.floor((min[0] - state.meshBounds[0]) / state.config.tileSizeWorld);
-    const rawMinY = Math.floor((min[2] - state.meshBounds[2]) / state.config.tileSizeWorld);
-    const rawMaxX = Math.floor((max[0] - state.meshBounds[0]) / state.config.tileSizeWorld);
-    const rawMaxY = Math.floor((max[2] - state.meshBounds[2]) / state.config.tileSizeWorld);
+    // z-up: tileX spans world Y, tileY spans world X
+    const rawMinX = Math.floor((min[1] - state.meshBounds[1]) / state.config.tileSizeWorld);
+    const rawMinY = Math.floor((min[0] - state.meshBounds[0]) / state.config.tileSizeWorld);
+    const rawMaxX = Math.floor((max[1] - state.meshBounds[1]) / state.config.tileSizeWorld);
+    const rawMaxY = Math.floor((max[0] - state.meshBounds[0]) / state.config.tileSizeWorld);
     
     const clampIndex = (value: number, maxValue: number) => Math.min(Math.max(value, 0), maxValue);
     
@@ -1758,7 +1775,7 @@ function processPlayerActions(
         } else {
             // Single tap - jump (only if not in noclip mode)
             if (!state.noclip && state.isGrounded) {
-                state.velocity.y = state.jumpSpeed;
+                state.velocity.z = state.jumpSpeed;
             }
             lastJumpPress = now;
         }
@@ -1837,11 +1854,11 @@ const PLATFORM_HEIGHT = 0.2;
 const PLATFORM_DEPTH = 2.0;
 
 const createBoxGeometry = (): THREE.BoxGeometry => {
-    return new THREE.BoxGeometry(BOX_SIZE_X, BOX_HEIGHT, BOX_SIZE_Z);
+    return new THREE.BoxGeometry(BOX_SIZE_Z, BOX_SIZE_X, BOX_HEIGHT);
 };
 
 const createPlatformGeometry = (): THREE.BoxGeometry => {
-    return new THREE.BoxGeometry(PLATFORM_WIDTH, PLATFORM_HEIGHT, PLATFORM_DEPTH);
+    return new THREE.BoxGeometry(PLATFORM_DEPTH, PLATFORM_WIDTH, PLATFORM_HEIGHT);
 };
 
 const createRampGeometry = (): THREE.BufferGeometry => {
@@ -1851,14 +1868,14 @@ const createRampGeometry = (): THREE.BufferGeometry => {
     // Ramp slopes from front (low) to back (high)
     const vertices = new Float32Array([
         // Bottom face (4 vertices)
-        -RAMP_WIDTH/2, 0, RAMP_DEPTH/2,   // 0: front left bottom
-        RAMP_WIDTH/2, 0, RAMP_DEPTH/2,    // 1: front right bottom
-        RAMP_WIDTH/2, 0, -RAMP_DEPTH/2,   // 2: back right bottom
-        -RAMP_WIDTH/2, 0, -RAMP_DEPTH/2,  // 3: back left bottom
-        
+        RAMP_DEPTH/2, -RAMP_WIDTH/2, 0,   // 0: front left bottom
+        RAMP_DEPTH/2, RAMP_WIDTH/2, 0,    // 1: front right bottom
+        -RAMP_DEPTH/2, RAMP_WIDTH/2, 0,   // 2: back right bottom
+        -RAMP_DEPTH/2, -RAMP_WIDTH/2, 0,  // 3: back left bottom
+
         // Top face (2 vertices) - only at the back
-        -RAMP_WIDTH/2, RAMP_HEIGHT, -RAMP_DEPTH/2,  // 4: back left top
-        RAMP_WIDTH/2, RAMP_HEIGHT, -RAMP_DEPTH/2,   // 5: back right top
+        -RAMP_DEPTH/2, -RAMP_WIDTH/2, RAMP_HEIGHT,  // 4: back left top
+        -RAMP_DEPTH/2, RAMP_WIDTH/2, RAMP_HEIGHT,   // 5: back right top
     ]);
     
     // Define triangles with counter-clockwise winding (when viewed from outside)
@@ -1900,6 +1917,8 @@ type AgentVisuals = {
 const createAgentVisuals = (position: Vec3, scene: THREE.Scene, color: number, radius: number, height: number): AgentVisuals => {
     // Create capsule geometry
     const capsuleGeometry = new THREE.CapsuleGeometry(radius, height - radius * 2, 4, 8);
+    // capsule geometry's long axis is +Y; rotate it so the axis is +Z (up)
+    capsuleGeometry.rotateX(Math.PI / 2);
     const capsuleMaterial = new THREE.MeshStandardMaterial({ 
         color, 
         emissive: color,
@@ -1908,7 +1927,7 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, color: number, r
         metalness: 0.3
     });
     const capsule = new THREE.Mesh(capsuleGeometry, capsuleMaterial);
-    capsule.position.set(position[0], position[1] + height / 2, position[2]);
+    capsule.position.set(position[0], position[1], position[2] + height / 2);
     capsule.castShadow = true;
     scene.add(capsule);
 
@@ -1932,21 +1951,21 @@ const updateAgentVisuals = (
     // Update capsule position
     visuals.capsule.position.set(
         agent.position[0],
-        agent.position[1] + agentParams.height / 2,
-        agent.position[2]
+        agent.position[1],
+        agent.position[2] + agentParams.height / 2
     );
 
     // Rotate capsule to face movement direction
     const velocity = vec3.length(agent.velocity);
     if (velocity > 0.1) {
         const direction = vec3.normalize([0, 0, 0], agent.velocity);
-        const targetAngle = Math.atan2(direction[0], direction[2]);
-        visuals.capsule.rotation.y = targetAngle;
+        const targetAngle = Math.atan2(direction[1], direction[0]);
+        visuals.capsule.rotation.z = targetAngle;
     }
 
     // update target mesh position
     visuals.targetMesh.position.fromArray(agent.targetPosition);
-    visuals.targetMesh.position.y += 0.1;
+    visuals.targetMesh.position.z += 0.1;
 };
 
 /* create crowd and agents */
@@ -1973,8 +1992,8 @@ const agentParams: crowd.AgentParams = {
 };
 
 // create agents at different positions
-const agentsSpawn: Vec3 = [0.15428635340626662, 2.2274933360741205e-16, -1.0031738158313672];
-const agentPositions: Vec3[] = Array.from({ length: 20 }).map((_, i) => [agentsSpawn[0] + i * -0.05, agentsSpawn[1], agentsSpawn[2] + i * 0.05]) as Vec3[];
+const agentsSpawn: Vec3 = [-1.0031738158313672, 0.15428635340626662, 2.2274933360741205e-16];
+const agentPositions: Vec3[] = Array.from({ length: 20 }).map((_, i) => [agentsSpawn[0] + i * 0.05, agentsSpawn[1] + i * -0.05, agentsSpawn[2]]) as Vec3[];
 
 const agentColors = [0x0000ff, 0x00ff00];
 
@@ -2103,13 +2122,13 @@ function updateTools(
     toolState.currentPreview.position.copy(playerPosition);
     toolState.currentPreview.position.addScaledVector(cameraDirection, 2);
     
-    // Rotate preview to face camera direction
-    let yRotation = Math.atan2(cameraDirection.x, cameraDirection.z);
+    // Rotate preview to face camera direction (heading about world +Z)
+    let yRotation = Math.atan2(cameraDirection.y, cameraDirection.x);
     // Flip ramp 180 degrees so it ramps up towards the player
     if (selectedTool === 'ramp') {
         yRotation += Math.PI;
     }
-    toolState.currentPreview.rotation.set(0, yRotation, 0);
+    toolState.currentPreview.rotation.set(0, 0, yRotation);
 }
 
 // raycaster for object selection
@@ -2126,7 +2145,8 @@ function processInputActions(
         if (selectedTool === 'delete') {
             // Raycast to find object to delete
             camera.getWorldDirection(_cameraDirection);
-            raycaster.set(camera.position, _cameraDirection);
+            // camera sits at the rig's local origin, so its world position is cameraRig.position
+            raycaster.set(cameraRig.position, _cameraDirection);
             
             const intersects = raycaster.intersectObjects(raycastTargets);
             if (intersects.length > 0) {
@@ -2140,8 +2160,8 @@ function processInputActions(
                 .copy(playerState.position)
                 .addScaledVector(_cameraDirection, 2); // 2 units in front
             
-            // Calculate Y rotation from camera direction (horizontal plane)
-            let yRotation = Math.atan2(_cameraDirection.x, _cameraDirection.z);
+            // Calculate heading rotation about world +Z from camera direction (horizontal plane)
+            let yRotation = Math.atan2(_cameraDirection.y, _cameraDirection.x);
             
             if (selectedTool === 'box') {
                 spawnBox(navMeshState, scene, _spawnPosition, yRotation, raycastTargets);

@@ -32,14 +32,14 @@ import {
     rasterizeTriangles,
     removeTile,
     WALKABLE_AREA,
-} from 'navcat';
-import { crowd } from 'navcat/blocks';
+} from 'navcat-zup';
+import { crowd } from 'navcat-zup/blocks';
 import {
     createNavMeshOffMeshConnectionsHelper,
     createNavMeshTileHelper,
     type DebugObject,
     getPositionsAndIndices,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import * as THREE from 'three/webgpu';
 import { loadGLTF } from './common/load-gltf';
@@ -74,13 +74,16 @@ const navMeshConfig = {
 /* setup example scene */
 const container = document.getElementById('root')!;
 
+// z-up world
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
 // scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
 
 // camera
 const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 // renderer
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -174,40 +177,40 @@ const extractMeshWorldTriangles = (mesh: THREE.Mesh) => {
 
 const offMeshConnections: OffMeshConnectionParams[] = [
     {
-        start: [0.39257542778564014, 3.9164539337158204, 2.7241512942770267],
-        end: [1.2915380743929097, 2.8616158587143867, 3.398593875470379],
+        start: [2.7241512942770267, 0.39257542778564014, 3.9164539337158204],
+        end: [3.398593875470379, 1.2915380743929097, 2.8616158587143867],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [3.491345350637368, 3.169861227710937, 2.8419154179454473],
-        end: [4.0038066734125435, 0.466454005241394, 1.686211347289651],
+        start: [2.8419154179454473, 3.491345350637368, 3.169861227710937],
+        end: [1.686211347289651, 4.0038066734125435, 0.466454005241394],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [4.612475330561077, 0.466454005241394, 2.7619018768157435],
-        end: [6.696740007427642, 0.5132029874438654, 2.5838885990777243],
+        start: [2.7619018768157435, 4.612475330561077, 0.466454005241394],
+        end: [2.5838885990777243, 6.696740007427642, 0.5132029874438654],
         direction: OffMeshConnectionDirection.BIDIRECTIONAL,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [3.8221359252929688, 0.47645399570465086, -4.391971844600165],
-        end: [5.91173484469572, 0.6573111525835266, -4.671632275169128],
+        start: [-4.391971844600165, 3.8221359252929688, 0.47645399570465086],
+        end: [-4.671632275169128, 5.91173484469572, 0.6573111525835266],
         direction: OffMeshConnectionDirection.BIDIRECTIONAL,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [8.354324172733968, 0.5340897451517822, -3.2333049546492223],
-        end: [8.461111697936666, 0.8365034207348984, -1.0863215738579806],
+        start: [-3.2333049546492223, 8.354324172733968, 0.5340897451517822],
+        end: [-1.0863215738579806, 8.461111697936666, 0.8365034207348984],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         flags: 0xffffff,
@@ -435,16 +438,16 @@ function initDynamicNavMesh(
     for (let tx = 0; tx < tileWidth; tx++) {
         for (let ty = 0; ty < tileHeight; ty++) {
             const minX = meshBounds[0] + tx * tileSizeWorld;
-            const minY = meshBounds[1];
-            const minZ = meshBounds[2] + ty * tileSizeWorld;
+            const minY = meshBounds[1] + ty * tileSizeWorld;
+            const minZ = meshBounds[2];
             const maxX = meshBounds[0] + (tx + 1) * tileSizeWorld;
-            const maxY = meshBounds[4];
-            const maxZ = meshBounds[2] + (ty + 1) * tileSizeWorld;
+            const maxY = meshBounds[1] + (ty + 1) * tileSizeWorld;
+            const maxZ = meshBounds[5];
             const bounds: Box3 = [minX, minY, minZ, maxX, maxY, maxZ];
             const key = tileKey(tx, ty);
             tileBoundsCache.set(key, bounds);
 
-            const expandedBounds: Box3 = [minX - borderOffset, minY, minZ - borderOffset, maxX + borderOffset, maxY, maxZ + borderOffset];
+            const expandedBounds: Box3 = [minX - borderOffset, minY - borderOffset, minZ, maxX + borderOffset, maxY + borderOffset, maxZ];
             tileExpandedBoundsCache.set(key, expandedBounds);
 
             const trianglesInBox: number[] = [];
@@ -653,7 +656,7 @@ function buildTileAtCoords(state: DynamicNavMeshState, scene: THREE.Scene, tx: n
         const t = state.navMesh.tiles[tileId];
         if (t.tileX === tx && t.tileY === ty) {
             const newTileHelper = createNavMeshTileHelper(t);
-            newTileHelper.object.position.y += 0.05;
+            newTileHelper.object.position.z += 0.05;
             scene.add(newTileHelper.object);
             state.visuals.tileHelpers.set(tileKeyStr, newTileHelper);
 
@@ -719,9 +722,9 @@ function tilesForAABB(state: DynamicNavMeshState, min: Vec3, max: Vec3): Array<[
     }
 
     const rawMinX = Math.floor((min[0] - state.meshBounds[0]) / state.config.tileSizeWorld);
-    const rawMinY = Math.floor((min[2] - state.meshBounds[2]) / state.config.tileSizeWorld);
+    const rawMinY = Math.floor((min[1] - state.meshBounds[1]) / state.config.tileSizeWorld);
     const rawMaxX = Math.floor((max[0] - state.meshBounds[0]) / state.config.tileSizeWorld);
-    const rawMaxY = Math.floor((max[2] - state.meshBounds[2]) / state.config.tileSizeWorld);
+    const rawMaxY = Math.floor((max[1] - state.meshBounds[1]) / state.config.tileSizeWorld);
 
     const clampIndex = (value: number, maxValue: number) => Math.min(Math.max(value, 0), maxValue);
 
@@ -885,7 +888,7 @@ function updateNavMeshVisuals(state: DynamicNavMeshState, _scene: THREE.Scene, n
 }
 
 /* create physics world */
-const physicsWorld = new Rapier.World(new Rapier.Vector3(0, -9.81, 0));
+const physicsWorld = new Rapier.World(new Rapier.Vector3(0, 0, -9.81));
 
 /* create fixed trimesh collider for level */
 const levelColliderDesc = Rapier.ColliderDesc.trimesh(new Float32Array(levelPositions), new Uint32Array(levelIndices));
@@ -958,12 +961,12 @@ const renderRapierDebug = (): void => {
 for (let i = 0; i < 20; i++) {
     // visual
     const boxSizeX = 0.4 + Math.random() * 0.6;
-    const boxSizeZ = 0.4 + Math.random() * 0.6;
+    const boxSizeY = 0.4 + Math.random() * 0.6;
     const minHeight = 0.25;
     const maxHeight = 1.6;
     const boxHeight = minHeight + Math.random() * (maxHeight - minHeight);
 
-    const boxGeometry = new THREE.BoxGeometry(boxSizeX, boxHeight, boxSizeZ);
+    const boxGeometry = new THREE.BoxGeometry(boxSizeX, boxSizeY, boxHeight);
     const boxMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
     const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
 
@@ -971,14 +974,14 @@ for (let i = 0; i < 20; i++) {
     raycastTargets.push(boxMesh);
 
     // physics
-    const boxColliderDesc = Rapier.ColliderDesc.cuboid(boxSizeX / 2, boxHeight / 2, boxSizeZ / 2);
+    const boxColliderDesc = Rapier.ColliderDesc.cuboid(boxSizeX / 2, boxSizeY / 2, boxHeight / 2);
     boxColliderDesc.setRestitution(0.1);
     boxColliderDesc.setFriction(0.5);
     boxColliderDesc.setDensity(1.0);
     const boxRigidBodyDesc = Rapier.RigidBodyDesc.dynamic().setTranslation(
         (Math.random() - 0.5) * 8,
-        10 + i * 2 + boxHeight,
         (Math.random() - 0.5) * 8,
+        10 + i * 2 + boxHeight,
     );
 
     const boxRigidBody = physicsWorld.createRigidBody(boxRigidBodyDesc);
@@ -1034,6 +1037,7 @@ type AgentVisuals = {
 const createAgentVisuals = (position: Vec3, scene: THREE.Scene, color: number, radius: number, height: number): AgentVisuals => {
     // Create capsule geometry
     const capsuleGeometry = new THREE.CapsuleGeometry(radius, height - radius * 2, 4, 8);
+    capsuleGeometry.rotateX(Math.PI / 2);
     const capsuleMaterial = new THREE.MeshStandardMaterial({
         color,
         emissive: color,
@@ -1042,7 +1046,7 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, color: number, r
         metalness: 0.3,
     });
     const capsule = new THREE.Mesh(capsuleGeometry, capsuleMaterial);
-    capsule.position.set(position[0], position[1] + height / 2, position[2]);
+    capsule.position.set(position[0], position[1], position[2] + height / 2);
     capsule.castShadow = true;
     scene.add(capsule);
 
@@ -1061,19 +1065,19 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, color: number, r
 
 const updateAgentVisuals = (agent: crowd.Agent, visuals: AgentVisuals): void => {
     // Update capsule position
-    visuals.capsule.position.set(agent.position[0], agent.position[1] + agentParams.height / 2, agent.position[2]);
+    visuals.capsule.position.set(agent.position[0], agent.position[1], agent.position[2] + agentParams.height / 2);
 
     // Rotate capsule to face movement direction
     const velocity = vec3.length(agent.velocity);
     if (velocity > 0.1) {
         const direction = vec3.normalize([0, 0, 0], agent.velocity);
-        const targetAngle = Math.atan2(direction[0], direction[2]);
-        visuals.capsule.rotation.y = targetAngle;
+        const targetAngle = Math.atan2(direction[1], direction[0]);
+        visuals.capsule.rotation.z = targetAngle;
     }
 
     // update target mesh position
     visuals.targetMesh.position.fromArray(agent.targetPosition);
-    visuals.targetMesh.position.y += 0.1;
+    visuals.targetMesh.position.z += 0.1;
 };
 
 /* create crowd and agents */
@@ -1100,7 +1104,7 @@ const agentParams: crowd.AgentParams = {
 };
 
 // create agents at different positions
-const agentPositions: Vec3[] = Array.from({ length: 2 }).map((_, i) => [-2 + i * -0.05, 0.5, 3]) as Vec3[];
+const agentPositions: Vec3[] = Array.from({ length: 2 }).map((_, i) => [3, -2 + i * -0.05, 0.5]) as Vec3[];
 
 const agentColors = [0x0000ff, 0x00ff00];
 
@@ -1192,13 +1196,13 @@ function update() {
         const position = obj.rigidBody.translation();
         const nowMs = performance.now();
 
-        const fellOut = position.y < -10;
+        const fellOut = position.z < -10;
         const periodic = nowMs - (obj.lastRespawn ?? 0) >= RESPAWN_INTERVAL_MS;
 
         if (fellOut || periodic) {
             const x = (Math.random() - 0.5) * 8;
-            const y = 10;
-            const z = (Math.random() - 0.5) * 8;
+            const y = (Math.random() - 0.5) * 8;
+            const z = 10;
 
             // teleport and clear velocities
             obj.rigidBody.setTranslation({ x, y, z }, true);
