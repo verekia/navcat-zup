@@ -13,8 +13,8 @@ import {
     NodeType,
     polygonsToNavMeshTilePolys,
     polysToTileDetailMesh,
-} from 'navcat';
-import { createNavMeshHelper, createNavMeshLinksHelper, createNavMeshPolyHelper, createSearchNodesHelper, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup';
+import { createNavMeshHelper, createNavMeshLinksHelper, createNavMeshPolyHelper, createSearchNodesHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
 import * as THREE from 'three/webgpu';
@@ -60,11 +60,11 @@ window.addEventListener('resize', onWindowResize);
 
 await renderer.init();
 
-camera.position.set(-2, 15, 20);
+camera.position.set(20, -2, 15);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
-orbitControls.target.set(0, 6, 0);
+orbitControls.target.set(0, 0, 6);
 
 /* load model and navmesh */
 const level = await loadGLTF('./models/tower-big.glb');
@@ -134,11 +134,11 @@ const tile = buildTile(tileParams);
 /* assemble navmesh */
 const navMesh = createNavMesh();
 
-navMesh.tileWidth = bounds[1][0] - bounds[0][0];
-navMesh.tileHeight = bounds[1][2] - bounds[0][2];
-navMesh.origin[0] = bounds[0][0];
-navMesh.origin[1] = bounds[0][1];
-navMesh.origin[2] = bounds[0][2];
+navMesh.tileWidth = bounds[4] - bounds[1];
+navMesh.tileHeight = bounds[3] - bounds[0];
+navMesh.origin[0] = bounds[0];
+navMesh.origin[1] = bounds[1];
+navMesh.origin[2] = bounds[2];
 
 addTile(navMesh, tile);
 
@@ -178,8 +178,8 @@ debugFolder.add(debugConfig, 'navMeshLinks').onChange(updateDebugViews);
 debugFolder.open();
 
 /* find path */
-let start: Vec3 = [-2.6, 1.1, 2.1];
-let end: Vec3 = [0.5, 11.1, 0.5];
+let start: Vec3 = [2.1, -2.6, 1.1];
+let end: Vec3 = [0.5, 0.5, 11.1];
 const halfExtents: Vec3 = [1, 1, 1];
 
 type Visual = { object: THREE.Object3D; dispose: () => void };

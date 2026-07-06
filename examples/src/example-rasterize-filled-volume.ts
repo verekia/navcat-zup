@@ -38,7 +38,7 @@ import {
     rasterizeSphere,
     rasterizeTriangles,
     WALKABLE_AREA,
-} from 'navcat';
+} from 'navcat-zup';
 import {
     createCompactHeightfieldDistancesHelper,
     createCompactHeightfieldRegionsHelper,
@@ -54,7 +54,7 @@ import {
     createTriangleAreaIdsHelper,
     type DebugObject,
     getPositionsAndIndices,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import * as THREE from 'three';
 import { OrbitControls, TransformControls } from 'three/examples/jsm/Addons.js';
 import { createExample } from './common/example-base';
@@ -64,7 +64,7 @@ import { loadGLTF } from './common/load-gltf';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -274,7 +274,7 @@ function updateDebugHelpers() {
 
     if (debugConfig.showNavMesh) {
         debugHelpers.navMesh = createNavMeshHelper(navMesh);
-        debugHelpers.navMesh.object.position.y += 0.1;
+        debugHelpers.navMesh.object.position.z += 0.1;
         scene.add(debugHelpers.navMesh.object);
     }
 
@@ -293,22 +293,25 @@ const walkableVolume1 = new THREE.Mesh(
         opacity: 0.75,
     }),
 );
-walkableVolume1.position.set(-2, 0, -7);
-walkableVolume1.rotation.y = Math.PI / 4;
+walkableVolume1.position.set(-7, -2, 0);
+walkableVolume1.rotation.z = Math.PI / 4;
 
 const walkableVolumes = [walkableVolume1];
 
 //null volumes
+const nullVolume1Geometry = new THREE.CapsuleGeometry();
+// capsule geometry's long axis is +Y; rotate it so the capsule is upright along +Z
+nullVolume1Geometry.rotateX(Math.PI / 2);
 const nullVolume1 = new THREE.Mesh(
-    new THREE.CapsuleGeometry(),
+    nullVolume1Geometry,
     new THREE.MeshStandardMaterial({
         color: 0xff0000, //red
         transparent: true,
         opacity: 0.75,
     }),
 );
-nullVolume1.position.set(2, 0, -7);
-nullVolume1.rotation.z = Math.PI / 4;
+nullVolume1.position.set(-7, 2, 0);
+nullVolume1.rotation.x = Math.PI / 4;
 
 const nullVolumes = [nullVolume1];
 
@@ -350,8 +353,9 @@ function threeMeshToVolume(mesh: THREE.Mesh, area: number): Volume {
     if (mesh.geometry instanceof THREE.CapsuleGeometry) {
         const { radius, height } = mesh.geometry.parameters;
         const halfHeight = height / 2;
-        const start = new THREE.Vector3(0, halfHeight, 0).applyMatrix4(mesh.matrixWorld);
-        const end = new THREE.Vector3(0, -halfHeight, 0).applyMatrix4(mesh.matrixWorld);
+        // capsule geometries in this example are rotated so their long axis is along +Z
+        const start = new THREE.Vector3(0, 0, halfHeight).applyMatrix4(mesh.matrixWorld);
+        const end = new THREE.Vector3(0, 0, -halfHeight).applyMatrix4(mesh.matrixWorld);
         return {
             type: 'capsule',
             start: start.toArray() as Vec3,
@@ -364,8 +368,9 @@ function threeMeshToVolume(mesh: THREE.Mesh, area: number): Volume {
     if (mesh.geometry instanceof THREE.CylinderGeometry) {
         const { radiusTop, height } = mesh.geometry.parameters;
         const halfHeight = height / 2;
-        const start = new THREE.Vector3(0, halfHeight, 0).applyMatrix4(mesh.matrixWorld);
-        const end = new THREE.Vector3(0, -halfHeight, 0).applyMatrix4(mesh.matrixWorld);
+        // cylinder geometries in this example are rotated so their long axis is along +Z
+        const start = new THREE.Vector3(0, 0, halfHeight).applyMatrix4(mesh.matrixWorld);
+        const end = new THREE.Vector3(0, 0, -halfHeight).applyMatrix4(mesh.matrixWorld);
         //TODO: support for different top and bottom radii
         return {
             type: 'cylinder',
@@ -666,8 +671,8 @@ function generateNavMesh(input: NavMeshInput, options: NavMeshOptions): NavMeshR
     /* create a single tile nav mesh */
 
     const nav = createNavMesh();
-    nav.tileWidth = polyMesh.bounds[3] - polyMesh.bounds[0];
-    nav.tileHeight = polyMesh.bounds[5] - polyMesh.bounds[2];
+    nav.tileWidth = polyMesh.bounds[4] - polyMesh.bounds[1];
+    nav.tileHeight = polyMesh.bounds[3] - polyMesh.bounds[0];
     box3.min(nav.origin, polyMesh.bounds);
 
     const tilePolys = polyMeshToTilePolys(polyMesh);

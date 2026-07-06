@@ -13,8 +13,8 @@ import {
     NodeType,
     polygonsToNavMeshTilePolys,
     polysToTileDetailMesh,
-} from 'navcat';
-import { createNavMeshHelper, createNavMeshPolyHelper, createSearchNodesHelper } from 'navcat/three';
+} from 'navcat-zup';
+import { createNavMeshHelper, createNavMeshPolyHelper, createSearchNodesHelper } from 'navcat-zup/three';
 import { acceleratedRaycast, computeBoundsTree, disposeBoundsTree } from 'three-mesh-bvh';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
@@ -36,7 +36,7 @@ scene.background = new THREE.Color(0x202020);
 
 // camera
 const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(0, 0, 20);
+camera.position.set(20, 0, 0);
 
 // renderer
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -66,7 +66,7 @@ window.addEventListener('resize', onWindowResize);
 
 await renderer.init();
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -80,22 +80,21 @@ const maxHeight = 2;
 const terrainSize = 50;
 const terrainSegments = 128;
 const terrainGeometry = new THREE.PlaneGeometry(terrainSize, terrainSize, terrainSegments, terrainSegments);
-terrainGeometry.rotateX(-Math.PI / 2);
 const positionAttribute = terrainGeometry.getAttribute('position');
 
 for (let i = 0; i < positionAttribute.count; i++) {
     const x = positionAttribute.getX(i);
-    const z = positionAttribute.getZ(i);
+    const y = positionAttribute.getY(i);
 
-    let y = 0;
+    let z = 0;
 
-    y += simplexNoise(x * 0.05, z * 0.05) * maxHeight * 0.5;
-    y += simplexNoise(x * 0.1, z * 0.1) * maxHeight * 0.25;
-    y += simplexNoise(x * 0.2, z * 0.2) * maxHeight * 0.125;
-    y += simplexNoise(x * 0.4, z * 0.4) * maxHeight * 0.0625;
-    y += simplexNoise(x * 0.8, z * 0.8) * maxHeight * 0.03125;
+    z += simplexNoise(y * 0.05, x * 0.05) * maxHeight * 0.5;
+    z += simplexNoise(y * 0.1, x * 0.1) * maxHeight * 0.25;
+    z += simplexNoise(y * 0.2, x * 0.2) * maxHeight * 0.125;
+    z += simplexNoise(y * 0.4, x * 0.4) * maxHeight * 0.0625;
+    z += simplexNoise(y * 0.8, x * 0.8) * maxHeight * 0.03125;
 
-    positionAttribute.setY(i, y);
+    positionAttribute.setZ(i, z);
 }
 positionAttribute.needsUpdate = true;
 terrainGeometry.computeVertexNormals();
@@ -106,7 +105,7 @@ scene.add(terrainMesh);
 levelMeshes.push(terrainMesh);
 
 const houseGeometry = new THREE.BoxGeometry(1, 1, 1);
-houseGeometry.translate(0, 0.5, 0);
+houseGeometry.translate(0, 0, 0.5);
 houseGeometry.computeBoundingBox();
 houseGeometry.computeBoundingSphere();
 
@@ -116,21 +115,21 @@ const random = createMulberry32Generator(42);
 for (let i = 0; i < 30; i++) {
     const houseMesh = new THREE.Mesh(houseGeometry, houseMaterial);
     houseMesh.userData.type = 'obstacle';
-    houseMesh.position.set((random() - 0.5) * terrainSize * 0.9, 0, (random() - 0.5) * terrainSize * 0.9);
+    houseMesh.position.set((random() - 0.5) * terrainSize * 0.9, (random() - 0.5) * terrainSize * 0.9, 0);
 
     const terrainHeight = (() => {
         const raycaster = new THREE.Raycaster(
-            new THREE.Vector3(houseMesh.position.x, 100, houseMesh.position.z),
-            new THREE.Vector3(0, -1, 0),
+            new THREE.Vector3(houseMesh.position.x, houseMesh.position.y, 100),
+            new THREE.Vector3(0, 0, -1),
         );
         const intersects = raycaster.intersectObject(terrainMesh);
         if (intersects.length > 0) {
-            return intersects[0].point.y;
+            return intersects[0].point.z;
         }
         return 0;
     })();
 
-    houseMesh.position.y = terrainHeight - 0.2;
+    houseMesh.position.z = terrainHeight - 0.2;
     houseMesh.scale.setScalar(1 + random() * 2);
     houseMesh.updateMatrixWorld();
     houseMesh.updateMatrix();
@@ -154,16 +153,16 @@ const gridSize = 2;
 const walkablePoints: Vec3[] = [];
 
 const gridRaycastBounds: Box3 = [
-    -terrainSize / 2, -5, -terrainSize / 2,
-    terrainSize / 2, 5, terrainSize / 2,
+    -terrainSize / 2, -terrainSize / 2, -5,
+    terrainSize / 2, terrainSize / 2, 5,
 ];
-const rayDirection = new THREE.Vector3(0, -1, 0);
+const rayDirection = new THREE.Vector3(0, 0, -1);
 const gridRaycaster = new THREE.Raycaster();
 gridRaycaster.far = 100;
 
 // grid dimensions
-const nx = Math.ceil((gridRaycastBounds[3] - gridRaycastBounds[0]) / gridSize) + 1;
-const nz = Math.ceil((gridRaycastBounds[5] - gridRaycastBounds[2]) / gridSize) + 1;
+const nx = Math.ceil((gridRaycastBounds[4] - gridRaycastBounds[1]) / gridSize) + 1;
+const nz = Math.ceil((gridRaycastBounds[3] - gridRaycastBounds[0]) / gridSize) + 1;
 
 // grid of points
 const grid: (Vec3 | null)[][] = Array.from({ length: nx }, () => Array(nz).fill(null));
@@ -173,10 +172,10 @@ const vertexIndexGrid: (number | null)[][] = Array.from({ length: nx }, () => Ar
 
 for (let ix = 0; ix < nx; ix++) {
     for (let iz = 0; iz < nz; iz++) {
-        const x = gridRaycastBounds[0] + ix * gridSize;
-        const z = gridRaycastBounds[2] + iz * gridSize;
+        const y = gridRaycastBounds[1] + ix * gridSize;
+        const x = gridRaycastBounds[0] + iz * gridSize;
 
-        gridRaycaster.set(new THREE.Vector3(x, 50, z), rayDirection);
+        gridRaycaster.set(new THREE.Vector3(x, y, 50), rayDirection);
 
         const intersects = gridRaycaster.intersectObjects(scene.children, true);
         let foundPoint: Vec3 | null = null;
@@ -218,7 +217,7 @@ for (let ix = 0; ix < nx - 1; ix++) {
 
         const normal: Vec3 = [ab[1] * ac[2] - ab[2] * ac[1], ab[2] * ac[0] - ab[0] * ac[2], ab[0] * ac[1] - ab[1] * ac[0]];
 
-        if (normal[1] < 0) {
+        if (normal[2] < 0) {
             // flip triangles
             indices.push(a, d, b);
             indices.push(a, c, d);
@@ -249,13 +248,13 @@ const triangulationGeometry = new THREE.BufferGeometry();
 triangulationGeometry.setAttribute('position', new THREE.Float32BufferAttribute(walkablePoints.flat(), 3));
 triangulationGeometry.setIndex(indices);
 const triangulationMesh = new THREE.Mesh(triangulationGeometry, triangulationMaterial);
-triangulationMesh.position.y += 0.2;
+triangulationMesh.position.z += 0.2;
 
 const triangulationWireframe = new THREE.LineSegments(
     new THREE.WireframeGeometry(triangulationGeometry),
     new THREE.LineBasicMaterial({ color: 0x000000 }),
 );
-triangulationWireframe.position.y += 0.2;
+triangulationWireframe.position.z += 0.2;
 
 const triangulationGroup = new THREE.Group();
 triangulationGroup.add(triangulationMesh);
@@ -312,14 +311,14 @@ const tile = buildTile(tileParams);
 /* assemble navmesh */
 const navMesh = createNavMesh();
 
-navMesh.tileWidth = bounds[3] - bounds[0];
-navMesh.tileHeight = bounds[5] - bounds[2];
+navMesh.tileWidth = bounds[4] - bounds[1];
+navMesh.tileHeight = bounds[3] - bounds[0];
 box3.min(navMesh.origin, bounds);
 
 addTile(navMesh, tile);
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.4;
+navMeshHelper.object.position.z += 0.4;
 scene.add(navMeshHelper.object);
 
 const gui = new GUI();
@@ -346,8 +345,8 @@ debugFolder.add(debugConfig, 'triangulation').onChange(updateDebugViews);
 debugFolder.open();
 
 /* find path */
-let start: Vec3 = [-6.1, 0.3, 5];
-let end: Vec3 = [8.6, -0.4, -3.7];
+let start: Vec3 = [5, -6.1, 0.3];
+let end: Vec3 = [-3.7, 8.6, -0.4];
 const halfExtents: Vec3 = [1, 1, 1];
 
 type Visual = { object: THREE.Object3D; dispose: () => void };
@@ -392,7 +391,7 @@ function updatePath() {
             const node = nodePath.path[i];
             if (getNodeRefType(node) === NodeType.POLY) {
                 const polyHelper = createNavMeshPolyHelper(navMesh, node);
-                polyHelper.object.position.y += 0.15;
+                polyHelper.object.position.z += 0.15;
                 addVisual(polyHelper);
             }
         }
@@ -404,7 +403,7 @@ function updatePath() {
             // point
             const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.2), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
             mesh.position.set(point.position[0], point.position[1], point.position[2]);
-            mesh.position.y += 0.2;
+            mesh.position.z += 0.2;
             addVisual({
                 object: mesh,
                 dispose: () => {
@@ -419,9 +418,9 @@ function updatePath() {
                 const geometry = new LineGeometry();
 
                 const start = new THREE.Vector3(...prevPoint.position);
-                start.y += 0.2;
+                start.z += 0.2;
                 const end = new THREE.Vector3(...point.position);
-                end.y += 0.2;
+                end.z += 0.2;
                 geometry.setFromPoints([start, end]);
 
                 const material = new Line2NodeMaterial({

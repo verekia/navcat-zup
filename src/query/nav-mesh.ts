@@ -7,10 +7,10 @@ export type NavMesh = {
     /** The world space origin of the navigation mesh's tiles */
     origin: Vec3;
 
-    /** The width of each tile along the x axis */
+    /** The width of each tile along the y axis */
     tileWidth: number;
 
-    /** The height of each tile along the z axis */
+    /** The height of each tile along the x axis */
     tileHeight: number;
 
     /** Global nodes */
