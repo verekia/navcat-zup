@@ -1,6 +1,6 @@
 import GUI from 'lil-gui';
-import { chunkyTriMesh } from 'navcat/blocks';
-import { getPositionsAndIndices } from 'navcat/three';
+import { chunkyTriMesh } from 'navcat-zup/blocks';
+import { getPositionsAndIndices } from 'navcat-zup/three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import * as THREE from 'three/webgpu';
 import { loadGLTF } from './common/load-gltf';
@@ -21,6 +21,7 @@ const camera = new THREE.OrthographicCamera(
     0.1,
     1000,
 );
+camera.up.set(0, 0, 1);
 
 // renderer
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -57,9 +58,9 @@ const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 
 // birds eye
-camera.position.set(0, 100, -50);
+camera.position.set(-50, 0, 100);
 camera.zoom = 0.1;
-orbitControls.target.set(0, 0, -50);
+orbitControls.target.set(-50, 0, 0);
 
 const levelModel = await loadGLTF('./models/dungeon.gltf');
 scene.add(levelModel.scene);
@@ -93,7 +94,7 @@ const config = {
     showChunkBounds: true,
     showQueryRegion: true,
     queryRegionX: 0,
-    queryRegionZ: 0,
+    queryRegionY: 0,
     queryRegionSize: 5,
     triangleInQueryColor: '#00ff00',
     triangleOutQueryColor: '#666666',
@@ -103,13 +104,13 @@ const config = {
 };
 
 /* helper to create edge lines for chunk bounds */
-function createChunkEdges(minX: number, minZ: number, maxX: number, maxZ: number, color: string) {
+function createChunkEdges(minX: number, minY: number, maxX: number, maxY: number, color: string) {
     const points = [
-        new THREE.Vector3(minX, 0.05, minZ),
-        new THREE.Vector3(maxX, 0.05, minZ),
-        new THREE.Vector3(maxX, 0.05, maxZ),
-        new THREE.Vector3(minX, 0.05, maxZ),
-        new THREE.Vector3(minX, 0.05, minZ),
+        new THREE.Vector3(minX, minY, 0.05),
+        new THREE.Vector3(maxX, minY, 0.05),
+        new THREE.Vector3(maxX, maxY, 0.05),
+        new THREE.Vector3(minX, maxY, 0.05),
+        new THREE.Vector3(minX, minY, 0.05),
     ];
 
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
@@ -155,8 +156,8 @@ function visualizeTriangles() {
     if (!config.showTriangles) return;
 
     const halfSize = config.queryRegionSize / 2;
-    const queryMin: [number, number] = [config.queryRegionX - halfSize, config.queryRegionZ - halfSize];
-    const queryMax: [number, number] = [config.queryRegionX + halfSize, config.queryRegionZ + halfSize];
+    const queryMin: [number, number] = [config.queryRegionX - halfSize, config.queryRegionY - halfSize];
+    const queryMax: [number, number] = [config.queryRegionX + halfSize, config.queryRegionY + halfSize];
 
     // Get triangles in query region
     const trianglesInQuery = chunkyTriMesh.getTrianglesInRect(levelChunkyTriMesh, queryMin, queryMax);
@@ -225,8 +226,8 @@ function visualizeChunkBounds() {
     if (!config.showChunkBounds) return;
 
     const halfSize = config.queryRegionSize / 2;
-    const queryMin: [number, number] = [config.queryRegionX - halfSize, config.queryRegionZ - halfSize];
-    const queryMax: [number, number] = [config.queryRegionX + halfSize, config.queryRegionZ + halfSize];
+    const queryMin: [number, number] = [config.queryRegionX - halfSize, config.queryRegionY - halfSize];
+    const queryMax: [number, number] = [config.queryRegionX + halfSize, config.queryRegionY + halfSize];
 
     // Get overlapping chunks
     const chunkIndices = chunkyTriMesh.getChunksOverlappingRect(levelChunkyTriMesh, queryMin, queryMax);
@@ -255,8 +256,8 @@ function visualizeQueryRegion() {
     if (!config.showQueryRegion) return;
 
     const halfSize = config.queryRegionSize / 2;
-    const queryMin: [number, number] = [config.queryRegionX - halfSize, config.queryRegionZ - halfSize];
-    const queryMax: [number, number] = [config.queryRegionX + halfSize, config.queryRegionZ + halfSize];
+    const queryMin: [number, number] = [config.queryRegionX - halfSize, config.queryRegionY - halfSize];
+    const queryMax: [number, number] = [config.queryRegionX + halfSize, config.queryRegionY + halfSize];
 
     // Draw query region edges
     const edges = createChunkEdges(queryMin[0], queryMin[1], queryMax[0], queryMax[1], config.queryRegionColor);
@@ -264,8 +265,8 @@ function visualizeQueryRegion() {
 
     // Also draw filled transparent box for query region
     const width = queryMax[0] - queryMin[0];
-    const depth = queryMax[1] - queryMin[1];
-    const geometry = new THREE.PlaneGeometry(width, depth);
+    const height = queryMax[1] - queryMin[1];
+    const geometry = new THREE.PlaneGeometry(width, height);
     const material = new THREE.MeshBasicMaterial({
         color: config.queryRegionColor,
         transparent: true,
@@ -273,8 +274,7 @@ function visualizeQueryRegion() {
         side: THREE.DoubleSide,
     });
     const plane = new THREE.Mesh(geometry, material);
-    plane.rotation.x = -Math.PI / 2;
-    plane.position.set(config.queryRegionX, 0.05, config.queryRegionZ);
+    plane.position.set(config.queryRegionX, config.queryRegionY, 0.05);
     queryRegionGroup.add(plane);
 }
 
@@ -303,7 +303,7 @@ chunksFolder.open();
 const queryFolder = gui.addFolder('Query Region');
 queryFolder.add(config, 'showQueryRegion').name('Show Query').onChange(updateVisualization);
 queryFolder.add(config, 'queryRegionX', -10, 10, 0.1).name('Query X').onChange(updateVisualization);
-queryFolder.add(config, 'queryRegionZ', -10, 10, 0.1).name('Query Z').onChange(updateVisualization);
+queryFolder.add(config, 'queryRegionY', -10, 10, 0.1).name('Query Y').onChange(updateVisualization);
 queryFolder.add(config, 'queryRegionSize', 0.5, 15, 0.1).name('Query Size').onChange(updateVisualization);
 queryFolder.addColor(config, 'queryRegionColor').name('Region Color').onChange(updateVisualization);
 queryFolder.open();
@@ -320,8 +320,8 @@ function getPointOnGround(event: PointerEvent): THREE.Vector3 | null {
 
     raycaster.setFromCamera(pointer, camera);
 
-    // Intersect with a ground plane at y=0
-    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+    // Intersect with a ground plane at z=0
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
     const intersectPoint = new THREE.Vector3();
 
     if (raycaster.ray.intersectPlane(groundPlane, intersectPoint)) {
@@ -339,7 +339,7 @@ renderer.domElement.addEventListener('pointerdown', (event: PointerEvent) => {
     const point = getPointOnGround(event);
     if (point) {
         config.queryRegionX = point.x;
-        config.queryRegionZ = point.z;
+        config.queryRegionY = point.y;
         updateVisualization();
 
         // Update GUI
@@ -355,7 +355,7 @@ renderer.domElement.addEventListener('pointermove', (event: PointerEvent) => {
     const point = getPointOnGround(event);
     if (point) {
         config.queryRegionX = point.x;
-        config.queryRegionZ = point.z;
+        config.queryRegionY = point.y;
         updateVisualization();
 
         // Update GUI

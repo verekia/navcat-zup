@@ -6,10 +6,10 @@ export const buildPolyNeighbours = (
     polys: NavMeshPoly[],
     vertices: number[],
     borderSize: number,
+    minY: number,
     minX: number,
-    minZ: number,
+    maxY: number,
     maxX: number,
-    maxZ: number,
 ) => {
     // initialize neis arrays for all polygons
     for (const poly of polys) {
@@ -21,7 +21,7 @@ export const buildPolyNeighbours = (
 
     // find portal edges
     if (borderSize > 0) {
-        findPortalEdges(polys, vertices, minX, minZ, maxX, maxZ);
+        findPortalEdges(polys, vertices, minY, minX, maxY, maxX);
     }
 
     // final poly neis formatting
@@ -105,10 +105,10 @@ export const buildMeshAdjacency = (polys: NavMeshPoly[], vertexCount: number): v
 export const findPortalEdges = (
     polys: NavMeshPoly[],
     vertices: number[],
+    minY: number,
     minX: number,
-    minZ: number,
+    maxY: number,
     maxX: number,
-    maxZ: number,
 ): void => {
     const va: Vec3 = [0, 0, 0];
     const vb: Vec3 = [0, 0, 0];
@@ -131,13 +131,13 @@ export const findPortalEdges = (
             vb[1] = vertices[poly.vertices[nj] * 3 + 1];
             vb[2] = vertices[poly.vertices[nj] * 3 + 2];
 
-            if (va[0] === minX && vb[0] === minX) {
+            if (va[1] === minY && vb[1] === minY) {
                 poly.neis[j] = POLY_NEIS_FLAG_EXT_LINK | 0;
-            } else if (va[2] === maxZ && vb[2] === maxZ) {
-                poly.neis[j] = POLY_NEIS_FLAG_EXT_LINK | 1;
             } else if (va[0] === maxX && vb[0] === maxX) {
+                poly.neis[j] = POLY_NEIS_FLAG_EXT_LINK | 1;
+            } else if (va[1] === maxY && vb[1] === maxY) {
                 poly.neis[j] = POLY_NEIS_FLAG_EXT_LINK | 2;
-            } else if (va[2] === minZ && vb[2] === minZ) {
+            } else if (va[0] === minX && vb[0] === minX) {
                 poly.neis[j] = POLY_NEIS_FLAG_EXT_LINK | 3;
             }
         }
@@ -155,13 +155,13 @@ export const finalizePolyNeighbours = (polys: NavMeshPoly[]) => {
                 if (dir === 0xf) {
                     poly.neis[i] = 0;
                 } else if (dir === 0) {
-                    poly.neis[i] = POLY_NEIS_FLAG_EXT_LINK | 4; // Portal x-
+                    poly.neis[i] = POLY_NEIS_FLAG_EXT_LINK | 4; // Portal y-
                 } else if (dir === 1) {
-                    poly.neis[i] = POLY_NEIS_FLAG_EXT_LINK | 2; // Portal z+
+                    poly.neis[i] = POLY_NEIS_FLAG_EXT_LINK | 2; // Portal x+
                 } else if (dir === 2) {
-                    poly.neis[i] = POLY_NEIS_FLAG_EXT_LINK | 0; // Portal x+
+                    poly.neis[i] = POLY_NEIS_FLAG_EXT_LINK | 0; // Portal y+
                 } else if (dir === 3) {
-                    poly.neis[i] = POLY_NEIS_FLAG_EXT_LINK | 6; // Portal z-
+                    poly.neis[i] = POLY_NEIS_FLAG_EXT_LINK | 6; // Portal x-
                 } else {
                     // TODO: how to handle this case?
                     poly.neis[i] = 0;

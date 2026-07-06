@@ -1,8 +1,8 @@
 import GUI from 'lil-gui';
 import type { Vec3 } from 'mathcat';
-import { createFindNearestPolyResult, DEFAULT_QUERY_FILTER, findNearestPoly, findRandomPointAroundCircle } from 'navcat';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, getPositionsAndIndices } from 'navcat/three';
+import { createFindNearestPolyResult, DEFAULT_QUERY_FILTER, findNearestPoly, findRandomPointAroundCircle } from 'navcat-zup';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { createExample } from './common/example-base';
@@ -12,7 +12,7 @@ import { loadGLTF } from './common/load-gltf';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -90,7 +90,7 @@ const navMeshResult = generateTiledNavMesh(navMeshInput, navMeshConfig);
 const navMesh = navMeshResult.navMesh;
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 /* find random point logic */
@@ -106,7 +106,7 @@ for (let i = 0; i < MAX_POINTS; i++) {
     pointMeshes.push(pointMesh);
 }
 
-const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 1, 0xffff00, 0.2);
+const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), 1, 0xffff00, 0.2);
 scene.add(arrow);
 
 const params = {
@@ -122,9 +122,9 @@ const updateRandomPoints = (point: Vec3) => {
     const startRef = nearestPoly.nodeRef;
     const startPosition = nearestPoly.position;
 
-    arrow.setDirection(new THREE.Vector3(0, -1, 0));
+    arrow.setDirection(new THREE.Vector3(0, 0, -1));
     arrow.position.fromArray(startPosition);
-    arrow.position.y += 1.5;
+    arrow.position.z += 1.5;
 
     // Hide all points first
     for (let i = 0; i < pointMeshes.length; i++) {
@@ -149,7 +149,7 @@ const updateRandomPoints = (point: Vec3) => {
     }
 };
 
-updateRandomPoints([-3.94, 0.26, 4.71]);
+updateRandomPoints([4.71, -3.94, 0.26]);
 
 /* gui */
 const gui = new GUI();

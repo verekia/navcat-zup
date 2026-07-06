@@ -14,9 +14,9 @@ import {
     type NodeRef,
     NodeType,
     type QueryFilter,
-} from 'navcat';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, createNavMeshPolyHelper, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, createNavMeshPolyHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
@@ -200,7 +200,7 @@ function findDiversePaths(
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -278,12 +278,12 @@ const navMeshResult = generateTiledNavMesh(navMeshInput, navMeshConfig);
 const navMesh = navMeshResult.navMesh;
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 /* find path */
-let start: Vec3 = [-3.94, 0.26, 4.71];
-let end: Vec3 = [2.52, 2.39, -2.2];
+let start: Vec3 = [4.71, -3.94, 0.26];
+let end: Vec3 = [-2.2, 2.52, 2.39];
 const halfExtents: Vec3 = [1, 1, 1];
 
 // Configuration for alternative path options
@@ -345,7 +345,7 @@ function updatePath() {
                 const node = nodePath.path[i];
                 if (getNodeRefType(node) === NodeType.POLY) {
                     const polyHelper = createNavMeshPolyHelper(navMesh, node);
-                    polyHelper.object.position.y += 0.15;
+                    polyHelper.object.position.z += 0.15;
                     addVisual(polyHelper);
                 }
             }
@@ -366,7 +366,7 @@ function updatePath() {
                     new THREE.MeshBasicMaterial({ color: routeColor }),
                 );
                 mesh.position.set(...point.position);
-                mesh.position.y += 0.1;
+                mesh.position.z += 0.1;
                 addVisual({
                     object: mesh,
                     dispose: () => {
@@ -385,7 +385,7 @@ function updatePath() {
                         worldUnits: true,
                     });
                     const line = new Line2(geometry, material);
-                    line.position.y += 0.1;
+                    line.position.z += 0.1;
                     addVisual({
                         object: line,
                         dispose: () => {

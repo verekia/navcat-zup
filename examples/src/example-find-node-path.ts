@@ -6,9 +6,9 @@ import {
     findNodePath,
     getNodeRefType,
     NodeType,
-} from 'navcat';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, createNavMeshPolyHelper, createSearchNodesHelper, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, createNavMeshPolyHelper, createSearchNodesHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { createExample } from './common/example-base';
@@ -19,7 +19,7 @@ import { loadGLTF } from './common/load-gltf';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -97,12 +97,12 @@ const navMeshResult = generateTiledNavMesh(navMeshInput, navMeshConfig);
 const navMesh = navMeshResult.navMesh;
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 /* find node path */
-let start: Vec3 = [-3.94, 0.26, 4.71];
-let end: Vec3 = [2.52, 2.39, -2.2];
+let start: Vec3 = [4.71, -3.94, 0.26];
+let end: Vec3 = [-2.2, 2.52, 2.39];
 const halfExtents: Vec3 = [1, 1, 1];
 
 type Visual = { object: THREE.Object3D; dispose: () => void };
@@ -178,7 +178,7 @@ function updatePath() {
             const nodeRef = pathResult.path[i];
             if (getNodeRefType(nodeRef) === NodeType.POLY) {
                 const polyHelper = createNavMeshPolyHelper(navMesh, nodeRef);
-                polyHelper.object.position.y += 0.15;
+                polyHelper.object.position.z += 0.15;
                 addVisual(polyHelper);
             }
         }

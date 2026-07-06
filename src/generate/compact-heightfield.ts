@@ -6,12 +6,12 @@ import type { Heightfield } from './heightfield';
 
 export type CompactHeightfieldSpan = {
     /** the lower extent of the span. measured from the heightfields base. */
-    y: number;
+    z: number;
     /** the id of the region the span belongs to, or zero if not in a region */
     region: number;
     /** packed neighbour connection data */
     con: number;
-    /** the height of the span, measured from y */
+    /** the height of the span, measured from z */
     h: number;
 };
 
@@ -23,9 +23,9 @@ export type CompactHeightfieldCell = {
 };
 
 export type CompactHeightfield = {
-    /** the width of the heightfield (along x axis in cell units) */
+    /** the width of the heightfield (along y axis in cell units) */
     width: number;
-    /** the height of the heightfield (along z axis in cell units) */
+    /** the height of the heightfield (along x axis in cell units) */
     height: number;
     /** the number of spans in the heightfield */
     spanCount: number;
@@ -98,13 +98,13 @@ export const buildCompactHeightfield = (
     walkableClimbVoxels: number,
     heightfield: Heightfield,
 ): CompactHeightfield => {
-    const xSize = heightfield.width;
-    const zSize = heightfield.height;
+    const ySize = heightfield.width;
+    const xSize = heightfield.height;
     const spanCount = getHeightFieldSpanCount(heightfield);
 
     const compactHeightfield: CompactHeightfield = {
-        width: xSize,
-        height: zSize,
+        width: ySize,
+        height: xSize,
         spanCount,
         walkableHeightVoxels,
         walkableClimbVoxels,
@@ -114,17 +114,17 @@ export const buildCompactHeightfield = (
         bounds: box3.clone(heightfield.bounds),
         cellSize: heightfield.cellSize,
         cellHeight: heightfield.cellHeight,
-        cells: new Array(xSize * zSize),
+        cells: new Array(ySize * xSize),
         spans: new Array(spanCount),
         areas: new Array(spanCount),
         distances: new Array(spanCount).fill(0),
     };
 
     // adjust upper bound to account for walkable height
-    compactHeightfield.bounds[4] += walkableHeightVoxels * heightfield.cellHeight;
+    compactHeightfield.bounds[5] += walkableHeightVoxels * heightfield.cellHeight;
 
     // initialize cells
-    for (let i = 0; i < xSize * zSize; i++) {
+    for (let i = 0; i < ySize * xSize; i++) {
         compactHeightfield.cells[i] = {
             index: 0,
             count: 0,
@@ -134,7 +134,7 @@ export const buildCompactHeightfield = (
     // initialize spans
     for (let i = 0; i < spanCount; i++) {
         compactHeightfield.spans[i] = {
-            y: 0,
+            z: 0,
             region: 0,
             con: 0,
             h: 0,
@@ -144,7 +144,7 @@ export const buildCompactHeightfield = (
 
     // fill in cells and spans
     let currentCellIndex = 0;
-    const numColumns = xSize * zSize;
+    const numColumns = ySize * xSize;
 
     for (let columnIndex = 0; columnIndex < numColumns; ++columnIndex) {
         let span = heightfield.spans[columnIndex];
@@ -163,7 +163,7 @@ export const buildCompactHeightfield = (
                 const bot = span.max;
                 const top = span.next ? span.next.min : MAX_HEIGHT;
 
-                compactHeightfield.spans[currentCellIndex].y = Math.min(Math.max(bot, 0), 0xffff);
+                compactHeightfield.spans[currentCellIndex].z = Math.min(Math.max(bot, 0), 0xffff);
                 compactHeightfield.spans[currentCellIndex].h = Math.min(Math.max(top - bot, 0), 0xff);
                 compactHeightfield.areas[currentCellIndex] = span.area;
 
@@ -176,11 +176,11 @@ export const buildCompactHeightfield = (
 
     // find neighbour connections
     let maxLayerIndex = 0;
-    const zStride = xSize;
+    const xStride = ySize;
 
-    for (let z = 0; z < zSize; ++z) {
-        for (let x = 0; x < xSize; ++x) {
-            const cell = compactHeightfield.cells[x + z * zStride];
+    for (let x = 0; x < xSize; ++x) {
+        for (let y = 0; y < ySize; ++y) {
+            const cell = compactHeightfield.cells[y + x * xStride];
 
             for (let i = cell.index; i < cell.index + cell.count; ++i) {
                 const span = compactHeightfield.spans[i];
@@ -188,26 +188,26 @@ export const buildCompactHeightfield = (
                 for (let dir = 0; dir < 4; ++dir) {
                     setCon(span, dir, NOT_CONNECTED);
 
-                    const neighborX = x + DIR_OFFSETS[dir][0];
-                    const neighborZ = z + DIR_OFFSETS[dir][1];
+                    const neighborY = y + DIR_OFFSETS[dir][0];
+                    const neighborX = x + DIR_OFFSETS[dir][1];
 
                     // first check that the neighbour cell is in bounds.
-                    if (neighborX < 0 || neighborZ < 0 || neighborX >= xSize || neighborZ >= zSize) {
+                    if (neighborY < 0 || neighborX < 0 || neighborY >= ySize || neighborX >= xSize) {
                         continue;
                     }
 
                     // iterate over all neighbour spans and check if any of them is
                     // accessible from current cell.
-                    const neighborCell = compactHeightfield.cells[neighborX + neighborZ * zStride];
+                    const neighborCell = compactHeightfield.cells[neighborY + neighborX * xStride];
 
                     for (let k = neighborCell.index; k < neighborCell.index + neighborCell.count; ++k) {
                         const neighborSpan = compactHeightfield.spans[k];
-                        const bot = Math.max(span.y, neighborSpan.y);
-                        const top = Math.min(span.y + span.h, neighborSpan.y + neighborSpan.h);
+                        const bot = Math.max(span.z, neighborSpan.z);
+                        const top = Math.min(span.z + span.h, neighborSpan.z + neighborSpan.h);
 
                         // check that the gap between the spans is walkable,
                         // and that the climb height between the gaps is not too high.
-                        if (top - bot >= walkableHeightVoxels && Math.abs(neighborSpan.y - span.y) <= walkableClimbVoxels) {
+                        if (top - bot >= walkableHeightVoxels && Math.abs(neighborSpan.z - span.z) <= walkableClimbVoxels) {
                             // Mark direction as walkable.
                             const layerIndex = k - neighborCell.index;
                             if (layerIndex < 0 || layerIndex > MAX_LAYERS) {
@@ -238,18 +238,18 @@ const MAX_DISTANCE = 255;
  * @returns A Uint8Array containing distance values for each span
  */
 const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint8Array => {
-    const xSize = compactHeightfield.width;
-    const zSize = compactHeightfield.height;
-    const zStride = xSize; // for readability
+    const ySize = compactHeightfield.width;
+    const xSize = compactHeightfield.height;
+    const xStride = ySize; // for readability
 
     // initialize distance array
     const distanceToBoundary = new Uint8Array(compactHeightfield.spanCount);
     distanceToBoundary.fill(MAX_DISTANCE);
 
     // mark boundary cells
-    for (let z = 0; z < zSize; ++z) {
-        for (let x = 0; x < xSize; ++x) {
-            const cell = compactHeightfield.cells[x + z * zStride];
+    for (let x = 0; x < xSize; ++x) {
+        for (let y = 0; y < ySize; ++y) {
+            const cell = compactHeightfield.cells[y + x * xStride];
             for (let spanIndex = cell.index; spanIndex < cell.index + cell.count; ++spanIndex) {
                 if (compactHeightfield.areas[spanIndex] === NULL_AREA) {
                     distanceToBoundary[spanIndex] = 0;
@@ -266,10 +266,10 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
                         break;
                     }
 
-                    const neighborX = x + DIR_OFFSETS[direction][0];
-                    const neighborZ = z + DIR_OFFSETS[direction][1];
+                    const neighborY = y + DIR_OFFSETS[direction][0];
+                    const neighborX = x + DIR_OFFSETS[direction][1];
                     const neighborSpanIndex =
-                        compactHeightfield.cells[neighborX + neighborZ * zStride].index + neighborConnection;
+                        compactHeightfield.cells[neighborY + neighborX * xStride].index + neighborConnection;
 
                     if (compactHeightfield.areas[neighborSpanIndex] === NULL_AREA) {
                         break;
@@ -286,9 +286,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
     }
 
     // pass 1: Forward pass (top-left to bottom-right)
-    for (let z = 0; z < zSize; ++z) {
-        for (let x = 0; x < xSize; ++x) {
-            const cell = compactHeightfield.cells[x + z * zStride];
+    for (let x = 0; x < xSize; ++x) {
+        for (let y = 0; y < ySize; ++y) {
+            const cell = compactHeightfield.cells[y + x * xStride];
             const maxSpanIndex = cell.index + cell.count;
 
             for (let spanIndex = cell.index; spanIndex < maxSpanIndex; ++spanIndex) {
@@ -296,9 +296,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
 
                 if (getCon(span, 0) !== NOT_CONNECTED) {
                     // (-1,0) - West neighbor
-                    const aX = x + DIR_OFFSETS[0][0];
-                    const aY = z + DIR_OFFSETS[0][1];
-                    const aIndex = compactHeightfield.cells[aX + aY * xSize].index + getCon(span, 0);
+                    const aY = y + DIR_OFFSETS[0][0];
+                    const aX = x + DIR_OFFSETS[0][1];
+                    const aIndex = compactHeightfield.cells[aY + aX * ySize].index + getCon(span, 0);
                     const aSpan = compactHeightfield.spans[aIndex];
                     let newDistance = Math.min(distanceToBoundary[aIndex] + 2, 255);
                     if (newDistance < distanceToBoundary[spanIndex]) {
@@ -307,9 +307,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
 
                     // (-1,-1) - Northwest diagonal
                     if (getCon(aSpan, 3) !== NOT_CONNECTED) {
-                        const bX = aX + DIR_OFFSETS[3][0];
-                        const bY = aY + DIR_OFFSETS[3][1];
-                        const bIndex = compactHeightfield.cells[bX + bY * xSize].index + getCon(aSpan, 3);
+                        const bY = aY + DIR_OFFSETS[3][0];
+                        const bX = aX + DIR_OFFSETS[3][1];
+                        const bIndex = compactHeightfield.cells[bY + bX * ySize].index + getCon(aSpan, 3);
                         newDistance = Math.min(distanceToBoundary[bIndex] + 3, 255);
                         if (newDistance < distanceToBoundary[spanIndex]) {
                             distanceToBoundary[spanIndex] = newDistance;
@@ -319,9 +319,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
 
                 if (getCon(span, 3) !== NOT_CONNECTED) {
                     // (0,-1) - North neighbor
-                    const aX = x + DIR_OFFSETS[3][0];
-                    const aY = z + DIR_OFFSETS[3][1];
-                    const aIndex = compactHeightfield.cells[aX + aY * xSize].index + getCon(span, 3);
+                    const aY = y + DIR_OFFSETS[3][0];
+                    const aX = x + DIR_OFFSETS[3][1];
+                    const aIndex = compactHeightfield.cells[aY + aX * ySize].index + getCon(span, 3);
                     const aSpan = compactHeightfield.spans[aIndex];
                     let newDistance = Math.min(distanceToBoundary[aIndex] + 2, 255);
                     if (newDistance < distanceToBoundary[spanIndex]) {
@@ -330,9 +330,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
 
                     // (1,-1) - Northeast diagonal
                     if (getCon(aSpan, 2) !== NOT_CONNECTED) {
-                        const bX = aX + DIR_OFFSETS[2][0];
-                        const bY = aY + DIR_OFFSETS[2][1];
-                        const bIndex = compactHeightfield.cells[bX + bY * xSize].index + getCon(aSpan, 2);
+                        const bY = aY + DIR_OFFSETS[2][0];
+                        const bX = aX + DIR_OFFSETS[2][1];
+                        const bIndex = compactHeightfield.cells[bY + bX * ySize].index + getCon(aSpan, 2);
                         newDistance = Math.min(distanceToBoundary[bIndex] + 3, 255);
                         if (newDistance < distanceToBoundary[spanIndex]) {
                             distanceToBoundary[spanIndex] = newDistance;
@@ -344,9 +344,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
     }
 
     // pass 2: Backward pass (bottom-right to top-left)
-    for (let z = zSize - 1; z >= 0; --z) {
-        for (let x = xSize - 1; x >= 0; --x) {
-            const cell = compactHeightfield.cells[x + z * zStride];
+    for (let x = xSize - 1; x >= 0; --x) {
+        for (let y = ySize - 1; y >= 0; --y) {
+            const cell = compactHeightfield.cells[y + x * xStride];
             const maxSpanIndex = cell.index + cell.count;
 
             for (let spanIndex = cell.index; spanIndex < maxSpanIndex; ++spanIndex) {
@@ -354,9 +354,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
 
                 if (getCon(span, 2) !== NOT_CONNECTED) {
                     // (1,0) - East neighbor
-                    const aX = x + DIR_OFFSETS[2][0];
-                    const aY = z + DIR_OFFSETS[2][1];
-                    const aIndex = compactHeightfield.cells[aX + aY * xSize].index + getCon(span, 2);
+                    const aY = y + DIR_OFFSETS[2][0];
+                    const aX = x + DIR_OFFSETS[2][1];
+                    const aIndex = compactHeightfield.cells[aY + aX * ySize].index + getCon(span, 2);
                     const aSpan = compactHeightfield.spans[aIndex];
                     let newDistance = Math.min(distanceToBoundary[aIndex] + 2, 255);
                     if (newDistance < distanceToBoundary[spanIndex]) {
@@ -365,9 +365,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
 
                     // (1,1) - Southeast diagonal
                     if (getCon(aSpan, 1) !== NOT_CONNECTED) {
-                        const bX = aX + DIR_OFFSETS[1][0];
-                        const bY = aY + DIR_OFFSETS[1][1];
-                        const bIndex = compactHeightfield.cells[bX + bY * xSize].index + getCon(aSpan, 1);
+                        const bY = aY + DIR_OFFSETS[1][0];
+                        const bX = aX + DIR_OFFSETS[1][1];
+                        const bIndex = compactHeightfield.cells[bY + bX * ySize].index + getCon(aSpan, 1);
                         newDistance = Math.min(distanceToBoundary[bIndex] + 3, 255);
                         if (newDistance < distanceToBoundary[spanIndex]) {
                             distanceToBoundary[spanIndex] = newDistance;
@@ -377,9 +377,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
 
                 if (getCon(span, 1) !== NOT_CONNECTED) {
                     // (0,1) - South neighbor
-                    const aX = x + DIR_OFFSETS[1][0];
-                    const aY = z + DIR_OFFSETS[1][1];
-                    const aIndex = compactHeightfield.cells[aX + aY * xSize].index + getCon(span, 1);
+                    const aY = y + DIR_OFFSETS[1][0];
+                    const aX = x + DIR_OFFSETS[1][1];
+                    const aIndex = compactHeightfield.cells[aY + aX * ySize].index + getCon(span, 1);
                     const aSpan = compactHeightfield.spans[aIndex];
                     let newDistance = Math.min(distanceToBoundary[aIndex] + 2, 255);
                     if (newDistance < distanceToBoundary[spanIndex]) {
@@ -388,9 +388,9 @@ const computeDistanceToBoundary = (compactHeightfield: CompactHeightfield): Uint
 
                     // (-1,1) - Southwest diagonal
                     if (getCon(aSpan, 0) !== NOT_CONNECTED) {
-                        const bX = aX + DIR_OFFSETS[0][0];
-                        const bY = aY + DIR_OFFSETS[0][1];
-                        const bIndex = compactHeightfield.cells[bX + bY * xSize].index + getCon(aSpan, 0);
+                        const bY = aY + DIR_OFFSETS[0][0];
+                        const bX = aX + DIR_OFFSETS[0][1];
+                        const bIndex = compactHeightfield.cells[bY + bX * ySize].index + getCon(aSpan, 0);
                         newDistance = Math.min(distanceToBoundary[bIndex] + 3, 255);
                         if (newDistance < distanceToBoundary[spanIndex]) {
                             distanceToBoundary[spanIndex] = newDistance;
@@ -476,41 +476,41 @@ export const erodeAndMarkWalkableAreas = (
  * Marks spans in the heightfield that intersect the specified box area with the given area ID.
  */
 export const markBoxArea = (bounds: Box3, areaId: number, compactHeightfield: CompactHeightfield) => {
-    const xSize = compactHeightfield.width;
-    const zSize = compactHeightfield.height;
-    const zStride = xSize; // For readability
+    const ySize = compactHeightfield.width;
+    const xSize = compactHeightfield.height;
+    const xStride = ySize; // For readability
 
     // Find the footprint of the box area in grid cell coordinates.
+    let minY = Math.floor((bounds[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellSize);
+    const minZ = Math.floor((bounds[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellHeight);
     let minX = Math.floor((bounds[0] - compactHeightfield.bounds[0]) / compactHeightfield.cellSize);
-    const minY = Math.floor((bounds[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellHeight);
-    let minZ = Math.floor((bounds[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellSize);
+    let maxY = Math.floor((bounds[4] - compactHeightfield.bounds[1]) / compactHeightfield.cellSize);
+    const maxZ = Math.floor((bounds[5] - compactHeightfield.bounds[2]) / compactHeightfield.cellHeight);
     let maxX = Math.floor((bounds[3] - compactHeightfield.bounds[0]) / compactHeightfield.cellSize);
-    const maxY = Math.floor((bounds[4] - compactHeightfield.bounds[1]) / compactHeightfield.cellHeight);
-    let maxZ = Math.floor((bounds[5] - compactHeightfield.bounds[2]) / compactHeightfield.cellSize);
 
     // Early-out if the box is outside the bounds of the grid.
+    if (maxY < 0) return;
+    if (minY >= ySize) return;
     if (maxX < 0) return;
     if (minX >= xSize) return;
-    if (maxZ < 0) return;
-    if (minZ >= zSize) return;
 
     // Clamp relevant bound coordinates to the grid.
+    if (minY < 0) minY = 0;
+    if (maxY >= ySize) maxY = ySize - 1;
     if (minX < 0) minX = 0;
     if (maxX >= xSize) maxX = xSize - 1;
-    if (minZ < 0) minZ = 0;
-    if (maxZ >= zSize) maxZ = zSize - 1;
 
     // Mark relevant cells.
-    for (let z = minZ; z <= maxZ; ++z) {
-        for (let x = minX; x <= maxX; ++x) {
-            const cell = compactHeightfield.cells[x + z * zStride];
+    for (let x = minX; x <= maxX; ++x) {
+        for (let y = minY; y <= maxY; ++y) {
+            const cell = compactHeightfield.cells[y + x * xStride];
             const maxSpanIndex = cell.index + cell.count;
 
             for (let spanIndex = cell.index; spanIndex < maxSpanIndex; ++spanIndex) {
                 const span = compactHeightfield.spans[spanIndex];
 
                 // Skip if the span is outside the box extents.
-                if (span.y < minY || span.y > maxY) {
+                if (span.z < minZ || span.z > maxZ) {
                     continue;
                 }
 
@@ -530,7 +530,7 @@ export const markBoxArea = (bounds: Box3, areaId: number, compactHeightfield: Co
  * Marks spans in the heightfield that intersect the specified rotated box area with the given area ID.
  * @param center - The center point of the box in world space [x, y, z]
  * @param halfExtents - Half extents of the box along each axis [x, y, z]
- * @param angleRadians - Rotation angle in radians around the Y axis
+ * @param angleRadians - Rotation angle in radians around the Z axis
  * @param areaId - The area ID to assign to intersecting spans
  * @param compactHeightfield - The compact heightfield to mark
  */
@@ -541,106 +541,106 @@ export const markRotatedBoxArea = (
     areaId: number,
     compactHeightfield: CompactHeightfield,
 ) => {
-    const xSize = compactHeightfield.width;
-    const zSize = compactHeightfield.height;
-    const zStride = xSize; // for readability
+    const ySize = compactHeightfield.width;
+    const xSize = compactHeightfield.height;
+    const xStride = ySize; // for readability
 
     // precompute sin and cos for rotation
     const cosAngle = Math.cos(angleRadians);
     const sinAngle = Math.sin(angleRadians);
 
-    // compute the 4 corners of the rotated box in the XZ plane and find AABB
-    // the corners in local space are at (±halfExtents[0], ±halfExtents[2])
+    // compute the 4 corners of the rotated box in the XY plane and find AABB
+    // the corners in local space are at (±halfExtents[1], ±halfExtents[0])
+    const hy = halfExtents[1];
     const hx = halfExtents[0];
-    const hz = halfExtents[2];
 
-    // corner 1: (-hx, -hz)
-    let worldX = center[0] + cosAngle * -hx - sinAngle * -hz;
-    let worldZ = center[2] + sinAngle * -hx + cosAngle * -hz;
+    // corner 1: (-hy, -hx)
+    let worldY = center[1] + cosAngle * -hy - sinAngle * -hx;
+    let worldX = center[0] + sinAngle * -hy + cosAngle * -hx;
+    let minWorldY = worldY;
+    let maxWorldY = worldY;
     let minWorldX = worldX;
     let maxWorldX = worldX;
-    let minWorldZ = worldZ;
-    let maxWorldZ = worldZ;
 
-    // corner 2: (hx, -hz)
-    worldX = center[0] + cosAngle * hx - sinAngle * -hz;
-    worldZ = center[2] + sinAngle * hx + cosAngle * -hz;
+    // corner 2: (hy, -hx)
+    worldY = center[1] + cosAngle * hy - sinAngle * -hx;
+    worldX = center[0] + sinAngle * hy + cosAngle * -hx;
+    minWorldY = Math.min(minWorldY, worldY);
+    maxWorldY = Math.max(maxWorldY, worldY);
     minWorldX = Math.min(minWorldX, worldX);
     maxWorldX = Math.max(maxWorldX, worldX);
-    minWorldZ = Math.min(minWorldZ, worldZ);
-    maxWorldZ = Math.max(maxWorldZ, worldZ);
 
-    // corner 3: (hx, hz)
-    worldX = center[0] + cosAngle * hx - sinAngle * hz;
-    worldZ = center[2] + sinAngle * hx + cosAngle * hz;
+    // corner 3: (hy, hx)
+    worldY = center[1] + cosAngle * hy - sinAngle * hx;
+    worldX = center[0] + sinAngle * hy + cosAngle * hx;
+    minWorldY = Math.min(minWorldY, worldY);
+    maxWorldY = Math.max(maxWorldY, worldY);
     minWorldX = Math.min(minWorldX, worldX);
     maxWorldX = Math.max(maxWorldX, worldX);
-    minWorldZ = Math.min(minWorldZ, worldZ);
-    maxWorldZ = Math.max(maxWorldZ, worldZ);
 
-    // corner 4: (-hx, hz)
-    worldX = center[0] + cosAngle * -hx - sinAngle * hz;
-    worldZ = center[2] + sinAngle * -hx + cosAngle * hz;
+    // corner 4: (-hy, hx)
+    worldY = center[1] + cosAngle * -hy - sinAngle * hx;
+    worldX = center[0] + sinAngle * -hy + cosAngle * hx;
+    minWorldY = Math.min(minWorldY, worldY);
+    maxWorldY = Math.max(maxWorldY, worldY);
     minWorldX = Math.min(minWorldX, worldX);
     maxWorldX = Math.max(maxWorldX, worldX);
-    minWorldZ = Math.min(minWorldZ, worldZ);
-    maxWorldZ = Math.max(maxWorldZ, worldZ);
 
-    // compute Y extents in world space
-    const minWorldY = center[1] - halfExtents[1];
-    const maxWorldY = center[1] + halfExtents[1];
+    // compute Z extents in world space
+    const minWorldZ = center[2] - halfExtents[2];
+    const maxWorldZ = center[2] + halfExtents[2];
 
     // convert AABB to grid coordinates
+    let minY = Math.floor((minWorldY - compactHeightfield.bounds[1]) / compactHeightfield.cellSize);
+    const minZ = Math.floor((minWorldZ - compactHeightfield.bounds[2]) / compactHeightfield.cellHeight);
     let minX = Math.floor((minWorldX - compactHeightfield.bounds[0]) / compactHeightfield.cellSize);
-    const minY = Math.floor((minWorldY - compactHeightfield.bounds[1]) / compactHeightfield.cellHeight);
-    let minZ = Math.floor((minWorldZ - compactHeightfield.bounds[2]) / compactHeightfield.cellSize);
+    let maxY = Math.floor((maxWorldY - compactHeightfield.bounds[1]) / compactHeightfield.cellSize);
+    const maxZ = Math.floor((maxWorldZ - compactHeightfield.bounds[2]) / compactHeightfield.cellHeight);
     let maxX = Math.floor((maxWorldX - compactHeightfield.bounds[0]) / compactHeightfield.cellSize);
-    const maxY = Math.floor((maxWorldY - compactHeightfield.bounds[1]) / compactHeightfield.cellHeight);
-    let maxZ = Math.floor((maxWorldZ - compactHeightfield.bounds[2]) / compactHeightfield.cellSize);
 
     // early-out if the rotated box AABB is outside the grid bounds
+    if (maxY < 0) return;
+    if (minY >= ySize) return;
     if (maxX < 0) return;
     if (minX >= xSize) return;
-    if (maxZ < 0) return;
-    if (minZ >= zSize) return;
 
     // clamp to grid bounds
+    if (minY < 0) minY = 0;
+    if (maxY >= ySize) maxY = ySize - 1;
     if (minX < 0) minX = 0;
     if (maxX >= xSize) maxX = xSize - 1;
-    if (minZ < 0) minZ = 0;
-    if (maxZ >= zSize) maxZ = zSize - 1;
 
     // iterate through cells in the AABB
-    for (let z = minZ; z <= maxZ; ++z) {
-        for (let x = minX; x <= maxX; ++x) {
+    for (let x = minX; x <= maxX; ++x) {
+        for (let y = minY; y <= maxY; ++y) {
             // calculate cell center in world space
+            const cellWorldY = compactHeightfield.bounds[1] + (y + 0.5) * compactHeightfield.cellSize;
             const cellWorldX = compactHeightfield.bounds[0] + (x + 0.5) * compactHeightfield.cellSize;
-            const cellWorldZ = compactHeightfield.bounds[2] + (z + 0.5) * compactHeightfield.cellSize;
 
             // transform cell center to box's local coordinate system
             // first translate to box origin
+            const dy = cellWorldY - center[1];
             const dx = cellWorldX - center[0];
-            const dz = cellWorldZ - center[2];
 
             // then apply inverse rotation (rotation by -angleRadians)
-            // inverse rotation matrix for Y-axis: [cos(θ), -sin(θ); sin(θ), cos(θ)]
-            const localX = cosAngle * dx - sinAngle * dz;
-            const localZ = sinAngle * dx + cosAngle * dz;
+            // inverse rotation matrix for Z-axis: [cos(θ), -sin(θ); sin(θ), cos(θ)]
+            const localY = cosAngle * dy - sinAngle * dx;
+            const localX = sinAngle * dy + cosAngle * dx;
 
             // check if the point is inside the box in local space
-            if (Math.abs(localX) > halfExtents[0] || Math.abs(localZ) > halfExtents[2]) {
+            if (Math.abs(localY) > halfExtents[1] || Math.abs(localX) > halfExtents[0]) {
                 continue;
             }
 
             // cell is inside the rotated box, mark its spans
-            const cell = compactHeightfield.cells[x + z * zStride];
+            const cell = compactHeightfield.cells[y + x * xStride];
             const maxSpanIndex = cell.index + cell.count;
 
             for (let spanIndex = cell.index; spanIndex < maxSpanIndex; ++spanIndex) {
                 const span = compactHeightfield.spans[spanIndex];
 
-                // skip if the span is outside the Y extents
-                if (span.y < minY || span.y > maxY) {
+                // skip if the span is outside the Z extents
+                if (span.z < minZ || span.z > maxZ) {
                     continue;
                 }
 
@@ -663,52 +663,52 @@ const _markConvexPolyArea_point = vec3.create();
  */
 export const markConvexPolyArea = (
     verts: number[],
-    minY: number,
-    maxY: number,
+    minZ: number,
+    maxZ: number,
     areaId: number,
     compactHeightfield: CompactHeightfield,
 ) => {
-    const xSize = compactHeightfield.width;
-    const zSize = compactHeightfield.height;
-    const zStride = xSize; // for readability
+    const ySize = compactHeightfield.width;
+    const xSize = compactHeightfield.height;
+    const xStride = ySize; // for readability
 
     // compute the bounding box of the polygon
-    const bmin = [verts[0], minY, verts[2]];
-    const bmax = [verts[0], maxY, verts[2]];
+    const bmin = [verts[0], verts[1], minZ];
+    const bmax = [verts[0], verts[1], maxZ];
 
     const numVerts = verts.length / 3;
     for (let i = 1; i < numVerts; ++i) {
         const vertIndex = i * 3;
+        bmin[1] = Math.min(bmin[1], verts[vertIndex + 1]);
         bmin[0] = Math.min(bmin[0], verts[vertIndex]);
-        bmin[2] = Math.min(bmin[2], verts[vertIndex + 2]);
+        bmax[1] = Math.max(bmax[1], verts[vertIndex + 1]);
         bmax[0] = Math.max(bmax[0], verts[vertIndex]);
-        bmax[2] = Math.max(bmax[2], verts[vertIndex + 2]);
     }
 
     // compute the grid footprint of the polygon
+    let miny = Math.floor((bmin[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellSize);
+    const minz = Math.floor((bmin[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellHeight);
     let minx = Math.floor((bmin[0] - compactHeightfield.bounds[0]) / compactHeightfield.cellSize);
-    const miny = Math.floor((bmin[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellHeight);
-    let minz = Math.floor((bmin[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellSize);
+    let maxy = Math.floor((bmax[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellSize);
+    const maxz = Math.floor((bmax[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellHeight);
     let maxx = Math.floor((bmax[0] - compactHeightfield.bounds[0]) / compactHeightfield.cellSize);
-    const maxy = Math.floor((bmax[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellHeight);
-    let maxz = Math.floor((bmax[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellSize);
 
     // early-out if the polygon lies entirely outside the grid.
+    if (maxy < 0) return;
+    if (miny >= ySize) return;
     if (maxx < 0) return;
     if (minx >= xSize) return;
-    if (maxz < 0) return;
-    if (minz >= zSize) return;
 
     // clamp the polygon footprint to the grid
+    if (miny < 0) miny = 0;
+    if (maxy >= ySize) maxy = ySize - 1;
     if (minx < 0) minx = 0;
     if (maxx >= xSize) maxx = xSize - 1;
-    if (minz < 0) minz = 0;
-    if (maxz >= zSize) maxz = zSize - 1;
 
     // TODO: optimize.
-    for (let z = minz; z <= maxz; ++z) {
-        for (let x = minx; x <= maxx; ++x) {
-            const cell = compactHeightfield.cells[x + z * zStride];
+    for (let x = minx; x <= maxx; ++x) {
+        for (let y = miny; y <= maxy; ++y) {
+            const cell = compactHeightfield.cells[y + x * xStride];
             const maxSpanIndex = cell.index + cell.count;
 
             for (let spanIndex = cell.index; spanIndex < maxSpanIndex; ++spanIndex) {
@@ -719,16 +719,16 @@ export const markConvexPolyArea = (
                     continue;
                 }
 
-                // skip if y extents don't overlap.
-                if (span.y < miny || span.y > maxy) {
+                // skip if z extents don't overlap.
+                if (span.z < minz || span.z > maxz) {
                     continue;
                 }
 
                 const point = vec3.set(
                     _markConvexPolyArea_point,
                     compactHeightfield.bounds[0] + (x + 0.5) * compactHeightfield.cellSize,
+                    compactHeightfield.bounds[1] + (y + 0.5) * compactHeightfield.cellSize,
                     0,
-                    compactHeightfield.bounds[2] + (z + 0.5) * compactHeightfield.cellSize,
                 );
 
                 if (pointInPoly(point, verts, numVerts)) {
@@ -749,47 +749,47 @@ export const markCylinderArea = (
     areaId: number,
     compactHeightfield: CompactHeightfield,
 ) => {
-    const xSize = compactHeightfield.width;
-    const zSize = compactHeightfield.height;
-    const zStride = xSize; // for readability
+    const ySize = compactHeightfield.width;
+    const xSize = compactHeightfield.height;
+    const xStride = ySize; // for readability
 
     // compute the bounding box of the cylinder
-    const cylinderBBMin = [position[0] - radius, position[1], position[2] - radius];
-    const cylinderBBMax = [position[0] + radius, position[1] + height, position[2] + radius];
+    const cylinderBBMin = [position[0] - radius, position[1] - radius, position[2]];
+    const cylinderBBMax = [position[0] + radius, position[1] + radius, position[2] + height];
 
     // compute the grid footprint of the cylinder
+    let miny = Math.floor((cylinderBBMin[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellSize);
+    const minz = Math.floor((cylinderBBMin[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellHeight);
     let minx = Math.floor((cylinderBBMin[0] - compactHeightfield.bounds[0]) / compactHeightfield.cellSize);
-    const miny = Math.floor((cylinderBBMin[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellHeight);
-    let minz = Math.floor((cylinderBBMin[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellSize);
+    let maxy = Math.floor((cylinderBBMax[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellSize);
+    const maxz = Math.floor((cylinderBBMax[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellHeight);
     let maxx = Math.floor((cylinderBBMax[0] - compactHeightfield.bounds[0]) / compactHeightfield.cellSize);
-    const maxy = Math.floor((cylinderBBMax[1] - compactHeightfield.bounds[1]) / compactHeightfield.cellHeight);
-    let maxz = Math.floor((cylinderBBMax[2] - compactHeightfield.bounds[2]) / compactHeightfield.cellSize);
 
     // early-out if the cylinder is completely outside the grid bounds.
-    if (maxx < 0 || minx >= xSize || maxz < 0 || minz >= zSize) {
+    if (maxy < 0 || miny >= ySize || maxx < 0 || minx >= xSize) {
         return;
     }
 
     // clamp the cylinder bounds to the grid.
+    if (miny < 0) miny = 0;
+    if (maxy >= ySize) maxy = ySize - 1;
     if (minx < 0) minx = 0;
     if (maxx >= xSize) maxx = xSize - 1;
-    if (minz < 0) minz = 0;
-    if (maxz >= zSize) maxz = zSize - 1;
 
     const radiusSq = radius * radius;
 
-    for (let z = minz; z <= maxz; ++z) {
-        for (let x = minx; x <= maxx; ++x) {
-            const cell = compactHeightfield.cells[x + z * zStride];
+    for (let x = minx; x <= maxx; ++x) {
+        for (let y = miny; y <= maxy; ++y) {
+            const cell = compactHeightfield.cells[y + x * xStride];
             const maxSpanIndex = cell.index + cell.count;
 
+            const cellY = compactHeightfield.bounds[1] + (y + 0.5) * compactHeightfield.cellSize;
             const cellX = compactHeightfield.bounds[0] + (x + 0.5) * compactHeightfield.cellSize;
-            const cellZ = compactHeightfield.bounds[2] + (z + 0.5) * compactHeightfield.cellSize;
+            const deltaY = cellY - position[1];
             const deltaX = cellX - position[0];
-            const deltaZ = cellZ - position[2];
 
             // skip this column if it's too far from the center point of the cylinder.
-            if (deltaX * deltaX + deltaZ * deltaZ >= radiusSq) {
+            if (deltaY * deltaY + deltaX * deltaX >= radiusSq) {
                 continue;
             }
 
@@ -802,8 +802,8 @@ export const markCylinderArea = (
                     continue;
                 }
 
-                // mark if y extents overlap.
-                if (span.y >= miny && span.y <= maxy) {
+                // mark if z extents overlap.
+                if (span.z >= minz && span.z <= maxz) {
                     compactHeightfield.areas[spanIndex] = areaId;
                 }
             }
@@ -834,17 +834,17 @@ const _neighborAreas = new Array(9);
  * such as #markBoxArea, #markConvexPolyArea, and #markCylinderArea.
  */
 export const medianFilterWalkableArea = (compactHeightfield: CompactHeightfield): boolean => {
-    const xSize = compactHeightfield.width;
-    const zSize = compactHeightfield.height;
-    const zStride = xSize; // for readability
+    const ySize = compactHeightfield.width;
+    const xSize = compactHeightfield.height;
+    const xStride = ySize; // for readability
 
     // create a temporary array to store the filtered areas
     const areas = new Uint8Array(compactHeightfield.spanCount);
     areas.fill(0xff);
 
-    for (let z = 0; z < zSize; ++z) {
-        for (let x = 0; x < xSize; ++x) {
-            const cell = compactHeightfield.cells[x + z * zStride];
+    for (let x = 0; x < xSize; ++x) {
+        for (let y = 0; y < ySize; ++y) {
+            const cell = compactHeightfield.cells[y + x * xStride];
             const maxSpanIndex = cell.index + cell.count;
 
             for (let spanIndex = cell.index; spanIndex < maxSpanIndex; ++spanIndex) {
@@ -866,9 +866,9 @@ export const medianFilterWalkableArea = (compactHeightfield: CompactHeightfield)
                         continue;
                     }
 
-                    const aX = x + DIR_OFFSETS[dir][0];
-                    const aZ = z + DIR_OFFSETS[dir][1];
-                    const aIndex = compactHeightfield.cells[aX + aZ * zStride].index + getCon(span, dir);
+                    const aY = y + DIR_OFFSETS[dir][0];
+                    const aX = x + DIR_OFFSETS[dir][1];
+                    const aIndex = compactHeightfield.cells[aY + aX * xStride].index + getCon(span, dir);
 
                     if (compactHeightfield.areas[aIndex] !== NULL_AREA) {
                         _neighborAreas[dir * 2 + 0] = compactHeightfield.areas[aIndex];
@@ -880,9 +880,9 @@ export const medianFilterWalkableArea = (compactHeightfield: CompactHeightfield)
                     const neighborConnection2 = getCon(aSpan, dir2);
 
                     if (neighborConnection2 !== NOT_CONNECTED) {
-                        const bX = aX + DIR_OFFSETS[dir2][0];
-                        const bZ = aZ + DIR_OFFSETS[dir2][1];
-                        const bIndex = compactHeightfield.cells[bX + bZ * zStride].index + neighborConnection2;
+                        const bY = aY + DIR_OFFSETS[dir2][0];
+                        const bX = aX + DIR_OFFSETS[dir2][1];
+                        const bIndex = compactHeightfield.cells[bY + bX * xStride].index + neighborConnection2;
 
                         if (compactHeightfield.areas[bIndex] !== NULL_AREA) {
                             _neighborAreas[dir * 2 + 1] = compactHeightfield.areas[bIndex];

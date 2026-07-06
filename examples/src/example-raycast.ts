@@ -9,9 +9,9 @@ import {
     getTileAndPolyByRef,
     raycast,
     raycastWithCosts,
-} from 'navcat';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, createNavMeshPolyHelper, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, createNavMeshPolyHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
@@ -26,8 +26,8 @@ const { scene, camera, renderer } = await createExample(container);
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 
-orbitControls.target.set(0, 0, 4);
-camera.position.set(0, 5, 8);
+orbitControls.target.set(4, 0, 0);
+camera.position.set(8, 0, 5);
 
 const navTestModel = await loadGLTF('./models/nav-test.glb');
 scene.add(navTestModel.scene);
@@ -102,12 +102,12 @@ const navMeshResult = generateTiledNavMesh(navMeshInput, navMeshConfig);
 const navMesh = navMeshResult.navMesh;
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 // state for raycast (with defaults)
-let clickedStart: Vec3 | null = [-0.8, 0.27, 5.1];
-let clickedEnd: Vec3 | null = [0.53, 0.26, 3.59];
+let clickedStart: Vec3 | null = [5.1, -0.8, 0.27];
+let clickedEnd: Vec3 | null = [3.59, 0.53, 0.26];
 
 // resolved positions and polys from findNearestPoly
 let startNodeRef: number | null = null;
@@ -152,7 +152,7 @@ controlsDiv.style.borderRadius = '4px';
 controlsDiv.style.pointerEvents = 'auto';
 
 const infoPanelTitle = document.createElement('div');
-infoPanelTitle.textContent = 'RAYCAST\n2D in XZ plane\nfollows the navmesh surface)';
+infoPanelTitle.textContent = 'RAYCAST\n2D in XY plane\nfollows the navmesh surface)';
 infoPanelTitle.style.whiteSpace = 'pre';
 infoPanelTitle.style.opacity = '0.6';
 infoPanelTitle.style.marginBottom = '8px';
@@ -247,7 +247,7 @@ function performRaycast() {
                 raycastHitPos,
             );
             if (heightResult.success) {
-                actualHitPosOnPoly = vec3.fromValues(raycastHitPos[0], heightResult.height, raycastHitPos[2]);
+                actualHitPosOnPoly = vec3.fromValues(raycastHitPos[0], raycastHitPos[1], heightResult.height);
             }
         }
     }
@@ -278,8 +278,8 @@ function performRaycast() {
         statusColor = '#66ff66';
         hitColor = '#66ff66';
     } else if (raycastReachedEnd && raycastHitPoly !== endNodeRef) {
-        // reached XZ position but different poly (vertically separated)
-        statusText = 'REACHED XZ (Different Poly) ⚠';
+        // reached XY position but different poly (vertically separated)
+        statusText = 'REACHED XY (Different Poly) ⚠';
         statusColor = '#ffaa00';
         hitColor = '#ffaa00';
     } else {
@@ -320,7 +320,7 @@ function performRaycast() {
         new THREE.MeshBasicMaterial({ color: new THREE.Color('green') }),
     );
     startMesh.position.fromArray(startPosition);
-    startMesh.position.y += 0.5;
+    startMesh.position.z += 0.5;
     addVisual({
         object: startMesh,
         dispose: () => {
@@ -335,7 +335,7 @@ function performRaycast() {
         new THREE.MeshBasicMaterial({ color: new THREE.Color('blue') }),
     );
     endMesh.position.fromArray(endPosition);
-    endMesh.position.y += 0.5;
+    endMesh.position.z += 0.5;
     addVisual({
         object: endMesh,
         dispose: () => {
@@ -359,7 +359,7 @@ function performRaycast() {
         new THREE.MeshBasicMaterial({ color: new THREE.Color(hitMeshColor) }),
     );
     hitMesh.position.fromArray(raycastHitPos);
-    hitMesh.position.y += 0.5;
+    hitMesh.position.z += 0.5;
     addVisual({
         object: hitMesh,
         dispose: () => {
@@ -375,7 +375,7 @@ function performRaycast() {
             new THREE.MeshBasicMaterial({ color: new THREE.Color('yellow') }),
         );
         actualHitMesh.position.fromArray(actualHitPosOnPoly);
-        actualHitMesh.position.y += 0.5;
+        actualHitMesh.position.z += 0.5;
         addVisual({
             object: actualHitMesh,
             dispose: () => {
@@ -401,7 +401,7 @@ function performRaycast() {
     if (toHitLen > 0.01) {
         const arrowGreen = new THREE.ArrowHelper(
             toHit.clone().normalize(),
-            startVec.clone().setY(startVec.y + 0.5),
+            startVec.clone().setZ(startVec.z + 0.5),
             toHitLen,
             0x00ff00,
             0.18,
@@ -419,7 +419,7 @@ function performRaycast() {
     if (!raycastReachedEnd && toEndLen > 0.01) {
         const arrowRed = new THREE.ArrowHelper(
             toEnd.clone().normalize(),
-            hitVec.clone().setY(hitVec.y + 0.5),
+            hitVec.clone().setZ(hitVec.z + 0.5),
             toEndLen,
             0xff0000,
             0.18,
@@ -446,7 +446,7 @@ function performRaycast() {
             worldUnits: true,
         });
         const normalLine = new Line2(normalLineGeometry, normalLineMaterial);
-        normalLine.position.y += 0.5;
+        normalLine.position.z += 0.5;
         addVisual({
             object: normalLine,
             dispose: () => {
@@ -458,18 +458,18 @@ function performRaycast() {
 
     // highlight start poly (green)
     const startPolyHelper = createNavMeshPolyHelper(navMesh, startNodeRef, [0, 1, 0]);
-    startPolyHelper.object.position.y += 0.25;
+    startPolyHelper.object.position.z += 0.25;
     addVisual(startPolyHelper);
 
     // highlight end target poly (blue)
     const endPolyHelper = createNavMeshPolyHelper(navMesh, endNodeRef, [0, 0, 1]);
-    endPolyHelper.object.position.y += 0.25;
+    endPolyHelper.object.position.z += 0.25;
     addVisual(endPolyHelper);
 
     // highlight raycast hit poly (yellow/orange) if different from end poly
     if (raycastHitPoly !== null && raycastHitPoly !== endNodeRef) {
         const hitPolyHelper = createNavMeshPolyHelper(navMesh, raycastHitPoly, [1, 0.6, 0]);
-        hitPolyHelper.object.position.y += 0.25;
+        hitPolyHelper.object.position.z += 0.25;
         addVisual(hitPolyHelper);
     }
 
@@ -485,7 +485,7 @@ function performRaycast() {
 
         const hslColor = new THREE.Color().setHSL(0.8, 0.9, 0.4 + (i / raycastResult.path.length) * 0.3);
         const polyHelper = createNavMeshPolyHelper(navMesh, poly, hslColor.toArray() as [number, number, number]);
-        polyHelper.object.position.y += 0.35;
+        polyHelper.object.position.z += 0.35;
         addVisual(polyHelper);
     }
 }

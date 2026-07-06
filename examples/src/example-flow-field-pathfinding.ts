@@ -1,5 +1,5 @@
 import type { Vec3 } from 'mathcat';
-import type { NavMesh, NodeRef } from 'navcat';
+import type { NavMesh, NodeRef } from 'navcat-zup';
 import {
     createFindNearestPolyResult,
     DEFAULT_QUERY_FILTER,
@@ -8,9 +8,9 @@ import {
     getNodeByRef,
     getNodeRefType,
     NodeType,
-} from 'navcat';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, createNavMeshPolyHelper, type DebugObject, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, createNavMeshPolyHelper, type DebugObject, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
@@ -23,7 +23,7 @@ import { loadGLTF } from './common/load-gltf';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -95,7 +95,7 @@ const navMeshResult = generateTiledNavMesh(navMeshInput, navMeshConfig);
 const navMesh = navMeshResult.navMesh;
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 /* flow field structures */
@@ -105,8 +105,8 @@ let pathfindingStartPosition: Vec3 | null = null;
 const maxIterations = 1000;
 
 /* initial positions */
-const initialFlowFieldOrigin: Vec3 = [-3.94, 0.26, 4.71];
-const initialPathfindingStart: Vec3 = [2.52, 2.39, -2.2];
+const initialFlowFieldOrigin: Vec3 = [4.71, -3.94, 0.26];
+const initialPathfindingStart: Vec3 = [-2.2, 2.52, 2.39];
 
 /* interaction */
 let interactionMode: 'idle' | 'moving-flow-field' | 'moving-path' = 'idle';
@@ -236,16 +236,16 @@ renderer.domElement.addEventListener('pointermove', (event) => {
 
 const flagGroup = (() => {
     // pole
-    const poleGeom = new THREE.BoxGeometry(0.12, 1.2, 0.12);
+    const poleGeom = new THREE.BoxGeometry(0.12, 0.12, 1.2);
     const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
     const pole = new THREE.Mesh(poleGeom, poleMat);
-    pole.position.set(0, 0.6, 0);
+    pole.position.set(0, 0, 0.6);
 
     // Bigger flag
-    const flagGeom = new THREE.BoxGeometry(0.32, 0.22, 0.04);
+    const flagGeom = new THREE.BoxGeometry(0.04, 0.32, 0.22);
     const flagMat = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
     const flag = new THREE.Mesh(flagGeom, flagMat);
-    flag.position.set(0.23, 1.0, 0);
+    flag.position.set(0, 0.23, 1.0);
 
     // group
     const group = new THREE.Group();
@@ -342,7 +342,7 @@ function showFlowFieldArrows(navMesh: NavMesh, flowField: FlowField) {
         const b = t;
         const color = new THREE.Color(r, g, b);
         const polyHelper = createNavMeshPolyHelper(navMesh, polyRef, [color.r, color.g, color.b]);
-        polyHelper.object.position.y += 0.15;
+        polyHelper.object.position.z += 0.15;
         flowFieldHelpers.push(polyHelper);
         scene.add(polyHelper.object);
     }
@@ -358,7 +358,7 @@ function showFlowFieldArrows(navMesh: NavMesh, flowField: FlowField) {
         if (length < 0.01) continue;
         dir.normalize();
         const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(...centerA), Math.max(length * 0.7, 0.3), 0xffffff, 0.2, 0.1);
-        arrow.position.y += 0.3;
+        arrow.position.z += 0.3;
         arrowHelpers.push(arrow);
         scene.add(arrow);
     }
@@ -370,7 +370,7 @@ function showPath(pathPolys: NodeRef[], pathPoints: number[][]) {
     // poly helpers
     for (const polyRef of pathPolys) {
         const polyHelper = createNavMeshPolyHelper(navMesh!, polyRef, [1, 0.7, 0.2]);
-        polyHelper.object.position.y += 0.15;
+        polyHelper.object.position.z += 0.15;
         pathHelpers.push({
             object: polyHelper.object,
             dispose: () => {
@@ -386,7 +386,7 @@ function showPath(pathPolys: NodeRef[], pathPoints: number[][]) {
     for (let i = 0; i < pathPoints.length; i++) {
         const pt = pathPoints[i];
         const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.15), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
-        mesh.position.set(pt[0], pt[1] + 0.3, pt[2]);
+        mesh.position.set(pt[0], pt[1], pt[2] + 0.3);
 
         pathHelpers.push({
             object: mesh,
@@ -402,8 +402,8 @@ function showPath(pathPolys: NodeRef[], pathPoints: number[][]) {
         if (i > 0) {
             const prev = pathPoints[i - 1];
 
-            const start = new THREE.Vector3(prev[0], prev[1] + 0.3, prev[2]);
-            const end = new THREE.Vector3(pt[0], pt[1] + 0.3, pt[2]);
+            const start = new THREE.Vector3(prev[0], prev[1], prev[2] + 0.3);
+            const end = new THREE.Vector3(pt[0], pt[1], pt[2] + 0.3);
 
             const geometry = new LineGeometry();
             geometry.setFromPoints([start, end]);

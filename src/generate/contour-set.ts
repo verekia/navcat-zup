@@ -1,6 +1,6 @@
 import { box3, type Box3, type Vec2, vec2 } from 'mathcat';
 import { BuildContext, type BuildContextState } from './build-context';
-import { AREA_BORDER, BORDER_REG, BORDER_VERTEX, CONTOUR_REG_MASK, getDirOffsetX, getDirOffsetY, NOT_CONNECTED } from './common';
+import { AREA_BORDER, BORDER_REG, BORDER_VERTEX, CONTOUR_REG_MASK, getDirOffsetY, getDirOffsetX, NOT_CONNECTED } from './common';
 import type { CompactHeightfield } from './compact-heightfield';
 import { getCon } from './compact-heightfield';
 
@@ -50,15 +50,15 @@ export enum ContourBuildFlags {
 
 // Helper function to get corner height
 const getCornerHeight = (
-    x: number,
     y: number,
+    x: number,
     i: number,
     dir: number,
     chf: CompactHeightfield,
     isBorderVertex: { value: boolean },
 ): number => {
     const s = chf.spans[i];
-    let ch = s.y;
+    let ch = s.z;
     const dirp = (dir + 1) & 0x3;
 
     const regs = new Array(4).fill(0);
@@ -68,34 +68,34 @@ const getCornerHeight = (
     regs[0] = chf.spans[i].region | (chf.areas[i] << 16);
 
     if (getCon(s, dir) !== NOT_CONNECTED) {
-        const ax = x + getDirOffsetX(dir);
         const ay = y + getDirOffsetY(dir);
-        const ai = chf.cells[ax + ay * chf.width].index + getCon(s, dir);
+        const ax = x + getDirOffsetX(dir);
+        const ai = chf.cells[ay + ax * chf.width].index + getCon(s, dir);
         const as = chf.spans[ai];
-        ch = Math.max(ch, as.y);
+        ch = Math.max(ch, as.z);
         regs[1] = chf.spans[ai].region | (chf.areas[ai] << 16);
         if (getCon(as, dirp) !== NOT_CONNECTED) {
-            const ax2 = ax + getDirOffsetX(dirp);
             const ay2 = ay + getDirOffsetY(dirp);
-            const ai2 = chf.cells[ax2 + ay2 * chf.width].index + getCon(as, dirp);
+            const ax2 = ax + getDirOffsetX(dirp);
+            const ai2 = chf.cells[ay2 + ax2 * chf.width].index + getCon(as, dirp);
             const as2 = chf.spans[ai2];
-            ch = Math.max(ch, as2.y);
+            ch = Math.max(ch, as2.z);
             regs[2] = chf.spans[ai2].region | (chf.areas[ai2] << 16);
         }
     }
     if (getCon(s, dirp) !== NOT_CONNECTED) {
-        const ax = x + getDirOffsetX(dirp);
         const ay = y + getDirOffsetY(dirp);
-        const ai = chf.cells[ax + ay * chf.width].index + getCon(s, dirp);
+        const ax = x + getDirOffsetX(dirp);
+        const ai = chf.cells[ay + ax * chf.width].index + getCon(s, dirp);
         const as = chf.spans[ai];
-        ch = Math.max(ch, as.y);
+        ch = Math.max(ch, as.z);
         regs[3] = chf.spans[ai].region | (chf.areas[ai] << 16);
         if (getCon(as, dir) !== NOT_CONNECTED) {
-            const ax2 = ax + getDirOffsetX(dir);
             const ay2 = ay + getDirOffsetY(dir);
-            const ai2 = chf.cells[ax2 + ay2 * chf.width].index + getCon(as, dir);
+            const ax2 = ax + getDirOffsetX(dir);
+            const ai2 = chf.cells[ay2 + ax2 * chf.width].index + getCon(as, dir);
             const as2 = chf.spans[ai2];
-            ch = Math.max(ch, as2.y);
+            ch = Math.max(ch, as2.z);
             regs[2] = chf.spans[ai2].region | (chf.areas[ai2] << 16);
         }
     }
@@ -125,8 +125,8 @@ const getCornerHeight = (
 // Helper function to walk contour
 const walkContour = (
     ctx: BuildContextState,
-    x: number,
     y: number,
+    x: number,
     i: number,
     chf: CompactHeightfield,
     flags: number[],
@@ -144,8 +144,8 @@ const walkContour = (
     const area = chf.areas[i];
 
     let iter = 0;
-    let currentX = x;
     let currentY = y;
+    let currentX = x;
     let currentI = i;
 
     while (++iter < MAX_CONTOUR_WALK_ITERATIONS) {
@@ -153,27 +153,27 @@ const walkContour = (
             // Choose the edge corner
             const isBorderVertex = { value: false };
             let isAreaBorder = false;
+            let py = currentY;
+            const pz = getCornerHeight(currentY, currentX, currentI, dir, chf, isBorderVertex);
             let px = currentX;
-            const py = getCornerHeight(currentX, currentY, currentI, dir, chf, isBorderVertex);
-            let pz = currentY;
             switch (dir) {
                 case 0:
-                    pz++;
+                    px++;
                     break;
                 case 1:
+                    py++;
                     px++;
-                    pz++;
                     break;
                 case 2:
-                    px++;
+                    py++;
                     break;
             }
             let r = 0;
             const s = chf.spans[currentI];
             if (getCon(s, dir) !== NOT_CONNECTED) {
-                const ax = currentX + getDirOffsetX(dir);
                 const ay = currentY + getDirOffsetY(dir);
-                const ai = chf.cells[ax + ay * chf.width].index + getCon(s, dir);
+                const ax = currentX + getDirOffsetX(dir);
+                const ai = chf.cells[ay + ax * chf.width].index + getCon(s, dir);
                 r = chf.spans[ai].region;
                 if (area !== chf.areas[ai]) {
                     isAreaBorder = true;
@@ -194,20 +194,20 @@ const walkContour = (
             dir = (dir + 1) & 0x3; // Rotate CW
         } else {
             let ni = -1;
-            const nx = currentX + getDirOffsetX(dir);
             const ny = currentY + getDirOffsetY(dir);
+            const nx = currentX + getDirOffsetX(dir);
             const s = chf.spans[currentI];
             if (getCon(s, dir) !== NOT_CONNECTED) {
-                const nc = chf.cells[nx + ny * chf.width];
+                const nc = chf.cells[ny + nx * chf.width];
                 ni = nc.index + getCon(s, dir);
             }
             if (ni === -1) {
                 // Should not happen.
-                BuildContext.warn(ctx, `walkContour: encountered unexpected disconnected neighbour at (${currentX}, ${currentY})`);
+                BuildContext.warn(ctx, `walkContour: encountered unexpected disconnected neighbour at (${currentY}, ${currentX})`);
                 return;
             }
-            currentX = nx;
             currentY = ny;
+            currentX = nx;
             currentI = ni;
             dir = (dir + 3) & 0x3; // Rotate CCW
         }
@@ -219,13 +219,13 @@ const walkContour = (
 };
 
 // Helper function to calculate distance from point to line segment
-const distancePtSeg = (x: number, z: number, px: number, pz: number, qx: number, qz: number): number => {
+const distancePtSeg = (y: number, x: number, py: number, px: number, qy: number, qx: number): number => {
+    const pqy = qy - py;
     const pqx = qx - px;
-    const pqz = qz - pz;
+    const dy = y - py;
     const dx = x - px;
-    const dz = z - pz;
-    const d = pqx * pqx + pqz * pqz;
-    let t = pqx * dx + pqz * dz;
+    const d = pqy * pqy + pqx * pqx;
+    let t = pqy * dy + pqx * dx;
     if (d > 0) {
         t /= d;
     }
@@ -235,10 +235,10 @@ const distancePtSeg = (x: number, z: number, px: number, pz: number, qx: number,
         t = 1;
     }
 
+    const finalDy = py + t * pqy - y;
     const finalDx = px + t * pqx - x;
-    const finalDz = pz + t * pqz - z;
 
-    return finalDx * finalDx + finalDz * finalDz;
+    return finalDy * finalDy + finalDx * finalDx;
 };
 
 // Helper function to simplify contour
@@ -266,7 +266,7 @@ const simplifyContour = (
             const differentRegs = (points[i * 4 + 3] & CONTOUR_REG_MASK) !== (points[ii * 4 + 3] & CONTOUR_REG_MASK);
             const areaBorders = (points[i * 4 + 3] & AREA_BORDER) !== (points[ii * 4 + 3] & AREA_BORDER);
             if (differentRegs || areaBorders) {
-                simplified.push(points[i * 4 + 0]);
+                simplified.push(points[i * 4]);
                 simplified.push(points[i * 4 + 1]);
                 simplified.push(points[i * 4 + 2]);
                 simplified.push(i);
@@ -278,25 +278,25 @@ const simplifyContour = (
         // If there is no connections at all,
         // create some initial points for the simplification process.
         // Find lower-left and upper-right vertices of the contour.
-        let llx = points[0];
         let lly = points[1];
         let llz = points[2];
+        let llx = points[0];
         let lli = 0;
-        let urx = points[0];
         let ury = points[1];
         let urz = points[2];
+        let urx = points[0];
         let uri = 0;
         for (let i = 0; i < points.length; i += 4) {
             const x = points[i + 0];
             const y = points[i + 1];
             const z = points[i + 2];
-            if (x < llx || (x === llx && z < llz)) {
+            if (y < lly || (y === lly && x < llx)) {
                 llx = x;
                 lly = y;
                 llz = z;
                 lli = Math.floor(i / 4);
             }
-            if (x > urx || (x === urx && z > urz)) {
+            if (y > ury || (y === ury && x > urx)) {
                 urx = x;
                 ury = y;
                 urz = z;
@@ -320,12 +320,12 @@ const simplifyContour = (
     for (let i = 0; i < Math.floor(simplified.length / 4); ) {
         const ii = (i + 1) % Math.floor(simplified.length / 4);
 
-        const ax = simplified[i * 4 + 0];
-        const az = simplified[i * 4 + 2];
+        const ay = simplified[i * 4 + 1];
+        const ax = simplified[i * 4];
         const ai = simplified[i * 4 + 3];
 
-        const bx = simplified[ii * 4 + 0];
-        const bz = simplified[ii * 4 + 2];
+        const by = simplified[ii * 4 + 1];
+        const bx = simplified[ii * 4];
         const bi = simplified[ii * 4 + 3];
 
         // Find maximum deviation from the segment.
@@ -338,11 +338,11 @@ const simplifyContour = (
         // Traverse the segment in lexilogical order so that the
         // max deviation is calculated similarly when traversing
         // opposite segments.
+        let segAy = ay;
         let segAx = ax;
-        let segAz = az;
+        let segBy = by;
         let segBx = bx;
-        let segBz = bz;
-        if (bx > ax || (bx === ax && bz > az)) {
+        if (by > ay || (by === ay && bx > ax)) {
             cinc = 1;
             ci = (ai + cinc) % pn;
             endi = bi;
@@ -350,17 +350,17 @@ const simplifyContour = (
             cinc = pn - 1;
             ci = (bi + cinc) % pn;
             endi = ai;
-            // Swap ax, bx and az, bz
+            // Swap ay, by and ax, bx
+            segAy = by;
+            segBy = ay;
             segAx = bx;
             segBx = ax;
-            segAz = bz;
-            segBz = az;
         }
 
         // Tessellate only outer edges or edges between areas.
         if ((points[ci * 4 + 3] & CONTOUR_REG_MASK) === 0 || points[ci * 4 + 3] & AREA_BORDER) {
             while (ci !== endi) {
-                const d = distancePtSeg(points[ci * 4 + 0], points[ci * 4 + 2], segAx, segAz, segBx, segBz);
+                const d = distancePtSeg(points[ci * 4 + 1], points[ci * 4], segAy, segAx, segBy, segBx);
                 if (d > maxd) {
                     maxd = d;
                     maxi = ci;
@@ -377,15 +377,15 @@ const simplifyContour = (
             simplified.length = oldLength + 4;
             const n = Math.floor(simplified.length / 4);
             for (let j = n - 1; j > i; --j) {
-                simplified[j * 4 + 0] = simplified[(j - 1) * 4 + 0];
                 simplified[j * 4 + 1] = simplified[(j - 1) * 4 + 1];
                 simplified[j * 4 + 2] = simplified[(j - 1) * 4 + 2];
+                simplified[j * 4] = simplified[(j - 1) * 4];
                 simplified[j * 4 + 3] = simplified[(j - 1) * 4 + 3];
             }
             // Add the point.
-            simplified[(i + 1) * 4 + 0] = points[maxi * 4 + 0];
             simplified[(i + 1) * 4 + 1] = points[maxi * 4 + 1];
             simplified[(i + 1) * 4 + 2] = points[maxi * 4 + 2];
+            simplified[(i + 1) * 4] = points[maxi * 4];
             simplified[(i + 1) * 4 + 3] = maxi;
         } else {
             ++i;
@@ -400,12 +400,12 @@ const simplifyContour = (
         for (let i = 0; i < Math.floor(simplified.length / 4); ) {
             const ii = (i + 1) % Math.floor(simplified.length / 4);
 
-            const ax = simplified[i * 4 + 0];
-            const az = simplified[i * 4 + 2];
+            const ay = simplified[i * 4 + 1];
+            const ax = simplified[i * 4];
             const ai = simplified[i * 4 + 3];
 
-            const bx = simplified[ii * 4 + 0];
-            const bz = simplified[ii * 4 + 2];
+            const by = simplified[ii * 4 + 1];
+            const bx = simplified[ii * 4];
             const bi = simplified[ii * 4 + 3];
 
             // Find maximum deviation from the segment.
@@ -424,15 +424,15 @@ const simplifyContour = (
             }
 
             if (tess) {
+                const dy = by - ay;
                 const dx = bx - ax;
-                const dz = bz - az;
-                if (dx * dx + dz * dz > maxEdgeLen * maxEdgeLen) {
+                if (dy * dy + dx * dx > maxEdgeLen * maxEdgeLen) {
                     // Round based on the segments in lexilogical order so that the
                     // max tesselation is consistent regardless in which direction
                     // segments are traversed.
                     const n = bi < ai ? bi + pn - ai : bi - ai;
                     if (n > 1) {
-                        if (bx > ax || (bx === ax && bz > az)) {
+                        if (by > ay || (by === ay && bx > ax)) {
                             maxi = (ai + Math.floor(n / 2)) % pn;
                         } else {
                             maxi = (ai + Math.floor((n + 1) / 2)) % pn;
@@ -448,15 +448,15 @@ const simplifyContour = (
                 simplified.length = oldLength + 4;
                 const n = Math.floor(simplified.length / 4);
                 for (let j = n - 1; j > i; --j) {
-                    simplified[j * 4 + 0] = simplified[(j - 1) * 4 + 0];
                     simplified[j * 4 + 1] = simplified[(j - 1) * 4 + 1];
                     simplified[j * 4 + 2] = simplified[(j - 1) * 4 + 2];
+                    simplified[j * 4] = simplified[(j - 1) * 4];
                     simplified[j * 4 + 3] = simplified[(j - 1) * 4 + 3];
                 }
                 // Add the point.
-                simplified[(i + 1) * 4 + 0] = points[maxi * 4 + 0];
                 simplified[(i + 1) * 4 + 1] = points[maxi * 4 + 1];
                 simplified[(i + 1) * 4 + 2] = points[maxi * 4 + 2];
+                simplified[(i + 1) * 4] = points[maxi * 4];
                 simplified[(i + 1) * 4 + 3] = maxi;
             } else {
                 ++i;
@@ -479,7 +479,7 @@ const calcAreaOfPolygon2D = (verts: number[], nverts: number): number => {
     for (let i = 0, j = nverts - 1; i < nverts; j = i++) {
         const vi = i * 4;
         const vj = j * 4;
-        area += verts[vi] * verts[vj + 2] - verts[vj] * verts[vi + 2];
+        area += verts[vi + 1] * verts[vj] - verts[vj + 1] * verts[vi];
     }
     return Math.floor((area + 1) / 2);
 };
@@ -520,7 +520,7 @@ const intersectProp = (a: Vec2, b: Vec2, c: Vec2, d: Vec2) => {
 // on the closed segment ab.
 const between = (a: Vec2, b: Vec2, c: Vec2) => {
     if (!collinear(a, b, c)) return false;
-    // If ab not vertical, check betweenness on x; else on y.
+    // If ab not vertical, check betweenness on y; else on x.
     if (a[0] !== b[0]) return (a[0] <= c[0] && c[0] <= b[0]) || (a[0] >= c[0] && c[0] >= b[0]);
     else return (a[1] <= c[1] && c[1] <= b[1]) || (a[1] >= c[1] && c[1] >= b[1]);
 };
@@ -545,8 +545,8 @@ const intersectSegContour = (d0: Vec2, d1: Vec2, i: number, n: number, verts: nu
             continue;
         }
 
-        const p0 = vec2.set(_intersectSegContour_p0, verts[k * 4], verts[k * 4 + 2]);
-        const p1 = vec2.set(_intersectSegContour_p1, verts[k1 * 4], verts[k1 * 4 + 2]);
+        const p0 = vec2.set(_intersectSegContour_p0, verts[k * 4 + 1], verts[k * 4]);
+        const p1 = vec2.set(_intersectSegContour_p1, verts[k1 * 4 + 1], verts[k1 * 4]);
 
         if (vec2.equals(d0, p0) || vec2.equals(d1, p0) || vec2.equals(d0, p1) || vec2.equals(d1, p1)) {
             continue;
@@ -569,9 +569,9 @@ const inCone = (i: number, n: number, verts: number[], pj: Vec2) => {
     const pi1Idx = next(i, n) * 4;
     const pin1Idx = prev(i, n) * 4;
 
-    const pi = vec2.set(_inCone_pi, verts[piIdx], verts[piIdx + 2]);
-    const pi1 = vec2.set(_inCone_pi1, verts[pi1Idx], verts[pi1Idx + 2]);
-    const pin1 = vec2.set(_inCone_pin1, verts[pin1Idx], verts[pin1Idx + 2]);
+    const pi = vec2.set(_inCone_pi, verts[piIdx + 1], verts[piIdx]);
+    const pi1 = vec2.set(_inCone_pi1, verts[pi1Idx + 1], verts[pi1Idx]);
+    const pin1 = vec2.set(_inCone_pin1, verts[pin1Idx + 1], verts[pin1Idx]);
 
     // If P[i] is a convex vertex [ i+1 left or on (i-1,i) ].
     if (leftOn(pin1, pi, pi1)) {
@@ -582,18 +582,18 @@ const inCone = (i: number, n: number, verts: number[], pj: Vec2) => {
     return !(leftOn(pi, pj, pi1) && leftOn(pj, pi, pin1));
 };
 
-const xorb = (x: boolean, y: boolean): boolean => {
-    return !x !== !y;
+const xorb = (y: boolean, x: boolean): boolean => {
+    return !y !== !x;
 };
 
 const vequal = (verticesA: number[], vertexAIdx: number, verticesB: number[], vertexBIdx: number): boolean => {
     const offsetA = vertexAIdx * 4;
     const offsetB = vertexBIdx * 4;
-    return verticesA[offsetA] === verticesB[offsetB] && verticesA[offsetA + 2] === verticesB[offsetB + 2];
+    return verticesA[offsetA + 1] === verticesB[offsetB + 1] && verticesA[offsetA] === verticesB[offsetB];
 };
 
 const removeDegenerateSegments = (simplified: number[]): void => {
-    // Remove adjacent vertices which are equal on xz-plane,
+    // Remove adjacent vertices which are equal on the xy-plane,
     // or else the triangulator will get confused.
     // Iterate backwards to avoid index shifting issues when removing elements.
     let npts = Math.floor(simplified.length / 4);
@@ -603,9 +603,9 @@ const removeDegenerateSegments = (simplified: number[]): void => {
         if (vequal(simplified, i, simplified, ni)) {
             // Degenerate segment, remove.
             for (let j = i; j < Math.floor(simplified.length / 4) - 1; ++j) {
-                simplified[j * 4 + 0] = simplified[(j + 1) * 4 + 0];
                 simplified[j * 4 + 1] = simplified[(j + 1) * 4 + 1];
                 simplified[j * 4 + 2] = simplified[(j + 1) * 4 + 2];
+                simplified[j * 4] = simplified[(j + 1) * 4];
                 simplified[j * 4 + 3] = simplified[(j + 1) * 4 + 3];
             }
             simplified.splice(-4, 4);
@@ -623,9 +623,9 @@ const mergeContours = (ca: Contour, cb: Contour, ia: number, ib: number): boolea
     // Copy contour A.
     for (let i = 0; i <= ca.nVertices; ++i) {
         const srcIndex = ((ia + i) % ca.nVertices) * 4;
-        verts[nv * 4 + 0] = ca.vertices[srcIndex + 0];
         verts[nv * 4 + 1] = ca.vertices[srcIndex + 1];
         verts[nv * 4 + 2] = ca.vertices[srcIndex + 2];
+        verts[nv * 4] = ca.vertices[srcIndex];
         verts[nv * 4 + 3] = ca.vertices[srcIndex + 3];
         nv++;
     }
@@ -633,9 +633,9 @@ const mergeContours = (ca: Contour, cb: Contour, ia: number, ib: number): boolea
     // Copy contour B
     for (let i = 0; i <= cb.nVertices; ++i) {
         const srcIndex = ((ib + i) % cb.nVertices) * 4;
-        verts[nv * 4 + 0] = cb.vertices[srcIndex + 0];
         verts[nv * 4 + 1] = cb.vertices[srcIndex + 1];
         verts[nv * 4 + 2] = cb.vertices[srcIndex + 2];
+        verts[nv * 4] = cb.vertices[srcIndex];
         verts[nv * 4 + 3] = cb.vertices[srcIndex + 3];
         nv++;
     }
@@ -651,8 +651,8 @@ const mergeContours = (ca: Contour, cb: Contour, ia: number, ib: number): boolea
 
 type ContourHole = {
     contour: Contour;
+    miny: number;
     minx: number;
-    minz: number;
     leftmost: number;
 };
 
@@ -667,35 +667,35 @@ type PotentialDiagonal = {
 };
 
 // Finds the lowest leftmost vertex of a contour.
-const findLeftMostVertex = (contour: Contour): { minx: number; minz: number; leftmost: number } => {
+const findLeftMostVertex = (contour: Contour): { miny: number; minx: number; leftmost: number } => {
+    let miny = contour.vertices[1];
     let minx = contour.vertices[0];
-    let minz = contour.vertices[2];
     let leftmost = 0;
     for (let i = 1; i < contour.nVertices; i++) {
-        const x = contour.vertices[i * 4 + 0];
-        const z = contour.vertices[i * 4 + 2];
-        if (x < minx || (x === minx && z < minz)) {
+        const y = contour.vertices[i * 4 + 1];
+        const x = contour.vertices[i * 4];
+        if (y < miny || (y === miny && x < minx)) {
+            miny = y;
             minx = x;
-            minz = z;
             leftmost = i;
         }
     }
-    return { minx, minz, leftmost };
+    return { miny, minx, leftmost };
 };
 
 const compareHoles = (a: ContourHole, b: ContourHole): number => {
-    if (a.minx === b.minx) {
-        if (a.minz < b.minz) {
-            return -1;
-        }
-        if (a.minz > b.minz) {
-            return 1;
-        }
-    } else {
+    if (a.miny === b.miny) {
         if (a.minx < b.minx) {
             return -1;
         }
         if (a.minx > b.minx) {
+            return 1;
+        }
+    } else {
+        if (a.miny < b.miny) {
+            return -1;
+        }
+        if (a.miny > b.miny) {
             return 1;
         }
     }
@@ -709,8 +709,8 @@ const mergeRegionHoles = (ctx: BuildContextState, region: ContourRegion): void =
     // Sort holes from left to right.
     for (let i = 0; i < region.holes.length; i++) {
         const result = findLeftMostVertex(region.holes[i].contour);
+        region.holes[i].miny = result.miny;
         region.holes[i].minx = result.minx;
-        region.holes[i].minz = result.minz;
         region.holes[i].leftmost = result.leftmost;
     }
 
@@ -746,16 +746,16 @@ const mergeRegionHoles = (ctx: BuildContextState, region: ContourRegion): void =
             let ndiags = 0;
             const corner = vec2.set(
                 _mergeRegionHoles_corner,
-                hole.vertices[bestVertex * 4 + 0],
-                hole.vertices[bestVertex * 4 + 2],
+                hole.vertices[bestVertex * 4 + 1],
+                hole.vertices[bestVertex * 4],
             );
 
             for (let j = 0; j < outline.nVertices; j++) {
                 if (inCone(j, outline.nVertices, outline.vertices, corner)) {
-                    const dx = outline.vertices[j * 4 + 0] - corner[0];
-                    const dz = outline.vertices[j * 4 + 2] - corner[1];
+                    const dy = outline.vertices[j * 4 + 1] - corner[0];
+                    const dx = outline.vertices[j * 4] - corner[1];
                     diags[ndiags].vert = j;
-                    diags[ndiags].dist = dx * dx + dz * dz;
+                    diags[ndiags].dist = dy * dy + dx * dx;
                     ndiags++;
                 }
             }
@@ -778,7 +778,7 @@ const mergeRegionHoles = (ctx: BuildContextState, region: ContourRegion): void =
             index = -1;
             for (let j = 0; j < ndiags; j++) {
                 const ptIdx = diags[j].vert * 4;
-                const pt = vec2.set(_mergeRegionHoles_pt, outline.vertices[ptIdx], outline.vertices[ptIdx + 2]);
+                const pt = vec2.set(_mergeRegionHoles_pt, outline.vertices[ptIdx + 1], outline.vertices[ptIdx]);
 
                 let intersect = intersectSegContour(pt, corner, diags[j].vert, outline.nVertices, outline.vertices);
                 for (let k = i; k < region.holes.length && !intersect; k++) {
@@ -839,18 +839,18 @@ export const buildContours = (
     // If the heightfield was build with borderSize, remove the offset.
     if (borderSize > 0) {
         const pad = borderSize * compactHeightfield.cellSize;
+        contourSet.bounds[1] += pad;
         contourSet.bounds[0] += pad;
-        contourSet.bounds[2] += pad;
+        contourSet.bounds[4] -= pad;
         contourSet.bounds[3] -= pad;
-        contourSet.bounds[5] -= pad;
     }
 
     const flags = new Array(compactHeightfield.spanCount).fill(0);
 
     // Mark boundaries.
-    for (let y = 0; y < height; ++y) {
-        for (let x = 0; x < width; ++x) {
-            const c = compactHeightfield.cells[x + y * width];
+    for (let x = 0; x < height; ++x) {
+        for (let y = 0; y < width; ++y) {
+            const c = compactHeightfield.cells[y + x * width];
             for (let i = c.index; i < c.index + c.count; ++i) {
                 let res = 0;
                 const s = compactHeightfield.spans[i];
@@ -861,9 +861,9 @@ export const buildContours = (
                 for (let dir = 0; dir < 4; ++dir) {
                     let r = 0;
                     if (getCon(s, dir) !== NOT_CONNECTED) {
-                        const ax = x + getDirOffsetX(dir);
                         const ay = y + getDirOffsetY(dir);
-                        const ai = compactHeightfield.cells[ax + ay * width].index + getCon(s, dir);
+                        const ax = x + getDirOffsetX(dir);
+                        const ai = compactHeightfield.cells[ay + ax * width].index + getCon(s, dir);
                         r = compactHeightfield.spans[ai].region;
                     }
                     if (r === compactHeightfield.spans[i].region) {
@@ -878,9 +878,9 @@ export const buildContours = (
     const verts: number[] = [];
     const simplified: number[] = [];
 
-    for (let y = 0; y < height; ++y) {
-        for (let x = 0; x < width; ++x) {
-            const c = compactHeightfield.cells[x + y * width];
+    for (let x = 0; x < height; ++x) {
+        for (let y = 0; y < width; ++y) {
+            const c = compactHeightfield.cells[y + x * width];
             for (let i = c.index; i < c.index + c.count; ++i) {
                 if (flags[i] === 0 || flags[i] === 0xf) {
                     flags[i] = 0;
@@ -895,7 +895,7 @@ export const buildContours = (
                 verts.length = 0;
                 simplified.length = 0;
 
-                walkContour(ctx, x, y, i, compactHeightfield, flags, verts);
+                walkContour(ctx, y, x, i, compactHeightfield, flags, verts);
                 simplifyContour(verts, simplified, maxSimplificationError, maxEdgeLength, buildFlags);
                 removeDegenerateSegments(simplified);
 
@@ -913,13 +913,13 @@ export const buildContours = (
                     if (borderSize > 0) {
                         // If the heightfield was build with bordersize, remove the offset.
                         for (let j = 0; j < contour.nVertices; ++j) {
-                            contour.vertices[j * 4 + 0] -= borderSize;
-                            contour.vertices[j * 4 + 2] -= borderSize;
+                            contour.vertices[j * 4 + 1] -= borderSize;
+                            contour.vertices[j * 4] -= borderSize;
                         }
 
                         for (let j = 0; j < contour.nRawVertices; ++j) {
-                            contour.rawVertices[j * 4 + 0] -= borderSize;
-                            contour.rawVertices[j * 4 + 2] -= borderSize;
+                            contour.rawVertices[j * 4 + 1] -= borderSize;
+                            contour.rawVertices[j * 4] -= borderSize;
                         }
                     }
 
@@ -959,8 +959,8 @@ export const buildContours = (
             for (let i = 0; i < contourSet.contours.length; i++) {
                 holes[i] = {
                     contour: contourSet.contours[i],
+                    miny: 0,
                     minx: 0,
-                    minz: 0,
                     leftmost: 0,
                 };
             }

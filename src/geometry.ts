@@ -4,53 +4,53 @@ import { vec2, vec3 } from 'mathcat';
 const EPS = 1e-6;
 
 /**
- * Calculates the closest point on a line segment to a given point in 2D (XZ plane)
+ * Calculates the closest point on a line segment to a given point in 2D (XY plane)
  * @param out Output parameter for the closest point
  * @param pt The point
  * @param p First endpoint of the segment
  * @param q Second endpoint of the segment
  */
 export const closestPtSeg2d = (out: Vec3, pt: Vec3, p: Vec3, q: Vec3): void => {
+    const pqy = q[1] - p[1];
     const pqx = q[0] - p[0];
-    const pqz = q[2] - p[2];
+    const dy = pt[1] - p[1];
     const dx = pt[0] - p[0];
-    const dz = pt[2] - p[2];
 
-    const d = pqx * pqx + pqz * pqz;
-    let t = pqx * dx + pqz * dz;
+    const d = pqy * pqy + pqx * pqx;
+    let t = pqy * dy + pqx * dx;
     if (d > 0) t /= d;
     if (t < 0) t = 0;
     else if (t > 1) t = 1;
 
+    out[1] = p[1] + t * pqy;
+    out[2] = p[2]; // keep original Z value from p
     out[0] = p[0] + t * pqx;
-    out[1] = p[1]; // keep original Y value from p
-    out[2] = p[2] + t * pqz;
 };
 
 /**
- * Tests if a point is inside a polygon in 2D (XZ plane)
+ * Tests if a point is inside a polygon in 2D (XY plane)
  */
 export const pointInPoly = (point: Vec3, vertices: number[], nVertices: number): boolean => {
     let inside = false;
+    const y = point[1];
     const x = point[0];
-    const z = point[2];
 
     for (let l = nVertices, i = 0, j = l - 1; i < l; j = i++) {
-        const xj = vertices[j * 3],
-            zj = vertices[j * 3 + 2],
-            xi = vertices[i * 3],
-            zi = vertices[i * 3 + 2];
-        const where = (zi - zj) * (x - xi) - (xi - xj) * (z - zi);
-        if (zj < zi) {
-            if (z >= zj && z < zi) {
+        const yj = vertices[j * 3 + 1],
+            xj = vertices[j * 3],
+            yi = vertices[i * 3 + 1],
+            xi = vertices[i * 3];
+        const where = (xi - xj) * (y - yi) - (yi - yj) * (x - xi);
+        if (xj < xi) {
+            if (x >= xj && x < xi) {
                 if (where === 0) {
                     // point on the line
                     return true;
                 }
                 if (where > 0) {
-                    if (z === zj) {
+                    if (x === xj) {
                         // ray intersects vertex
-                        if (z > vertices[(j === 0 ? l - 1 : j - 1) * 3 + 2]) {
+                        if (x > vertices[(j === 0 ? l - 1 : j - 1) * 3]) {
                             inside = !inside;
                         }
                     } else {
@@ -58,16 +58,16 @@ export const pointInPoly = (point: Vec3, vertices: number[], nVertices: number):
                     }
                 }
             }
-        } else if (zi < zj) {
-            if (z > zi && z <= zj) {
+        } else if (xi < xj) {
+            if (x > xi && x <= xj) {
                 if (where === 0) {
                     // point on the line
                     return true;
                 }
                 if (where < 0) {
-                    if (z === zj) {
+                    if (x === xj) {
                         // ray intersects vertex
-                        if (z < vertices[(j === 0 ? l - 1 : j - 1) * 3 + 2]) {
+                        if (x < vertices[(j === 0 ? l - 1 : j - 1) * 3]) {
                             inside = !inside;
                         }
                     } else {
@@ -75,7 +75,7 @@ export const pointInPoly = (point: Vec3, vertices: number[], nVertices: number):
                     }
                 }
             }
-        } else if (z === zi && ((x >= xj && x <= xi) || (x >= xi && x <= xj))) {
+        } else if (x === xi && ((y >= yj && y <= yi) || (y >= yi && y <= yj))) {
             // point on horizontal edge
             return true;
         }
@@ -101,14 +101,14 @@ export const distPtTri = (p: Vec3, a: Vec3, b: Vec3, c: Vec3): number => {
     vec3.subtract(v1, b, a);
     vec3.subtract(v2, p, a);
 
-    _distPtTriVec0[0] = v0[0];
-    _distPtTriVec0[1] = v0[2];
+    _distPtTriVec0[0] = v0[1];
+    _distPtTriVec0[1] = v0[0];
 
-    _distPtTriVec1[0] = v1[0];
-    _distPtTriVec1[1] = v1[2];
+    _distPtTriVec1[0] = v1[1];
+    _distPtTriVec1[1] = v1[0];
 
-    _distPtTriVec2[0] = v2[0];
-    _distPtTriVec2[1] = v2[2];
+    _distPtTriVec2[0] = v2[1];
+    _distPtTriVec2[1] = v2[0];
 
     const dot00 = vec2.dot(_distPtTriVec0, _distPtTriVec0);
     const dot01 = vec2.dot(_distPtTriVec0, _distPtTriVec1);
@@ -121,11 +121,11 @@ export const distPtTri = (p: Vec3, a: Vec3, b: Vec3, c: Vec3): number => {
     const u = (dot11 * dot02 - dot01 * dot12) * invDenom;
     const v = (dot00 * dot12 - dot01 * dot02) * invDenom;
 
-    // If point lies inside the triangle, return interpolated y-coord.
+    // If point lies inside the triangle, return interpolated z-coord.
     const EPS_TRI = 1e-4;
     if (u >= -EPS_TRI && v >= -EPS_TRI && u + v <= 1 + EPS_TRI) {
-        const y = a[1] + v0[1] * u + v1[1] * v;
-        return Math.abs(y - p[1]);
+        const z = a[2] + v0[2] * u + v1[2] * v;
+        return Math.abs(z - p[2]);
     }
     return Number.MAX_VALUE;
 };
@@ -164,21 +164,21 @@ export const createDistPtSeg2dResult = (): DistPtSeg2dResult => ({
 });
 
 export const distancePtSeg2d = (out: DistPtSeg2dResult, pt: Vec3, p: Vec3, q: Vec3) => {
+    const pqy = q[1] - p[1];
     const pqx = q[0] - p[0];
-    const pqz = q[2] - p[2];
+    const dy = pt[1] - p[1];
     const dx = pt[0] - p[0];
-    const dz = pt[2] - p[2];
 
-    const d = pqx * pqx + pqz * pqz;
-    let t = pqx * dx + pqz * dz;
+    const d = pqy * pqy + pqx * pqx;
+    let t = pqy * dy + pqx * dx;
     if (d > 0) t /= d;
     if (t < 0) t = 0;
     else if (t > 1) t = 1;
 
+    const closeDy = p[1] + t * pqy - pt[1];
     const closeDx = p[0] + t * pqx - pt[0];
-    const closeDz = p[2] + t * pqz - pt[2];
 
-    const dist = closeDx * closeDx + closeDz * closeDz;
+    const dist = closeDy * closeDy + closeDx * closeDx;
 
     out.dist = dist;
     out.t = t;
@@ -193,24 +193,24 @@ export const createDistancePtSegSqr2dResult = (): DistancePtSegSqr2dResult => ({
 });
 
 export const distancePtSegSqr2d = (out: DistancePtSegSqr2dResult, pt: Vec3, p: Vec3, q: Vec3) => {
+    const pqy = q[1] - p[1];
     const pqx = q[0] - p[0];
-    const pqz = q[2] - p[2];
+    const dy = pt[1] - p[1];
     const dx = pt[0] - p[0];
-    const dz = pt[2] - p[2];
 
-    const d = pqx * pqx + pqz * pqz;
-    let t = pqx * dx + pqz * dz;
+    const d = pqy * pqy + pqx * pqx;
+    let t = pqy * dy + pqx * dx;
     if (d > 0) t /= d;
     if (t < 0) t = 0;
     else if (t > 1) t = 1;
 
+    const closestY = p[1] + t * pqy;
     const closestX = p[0] + t * pqx;
-    const closestZ = p[2] + t * pqz;
 
+    const distY = closestY - pt[1];
     const distX = closestX - pt[0];
-    const distZ = closestZ - pt[2];
 
-    const distSqr = distX * distX + distZ * distZ;
+    const distSqr = distY * distY + distX * distX;
 
     out.distSqr = distSqr;
     out.t = t;
@@ -252,8 +252,8 @@ export const distToPoly = (nvert: number, verts: number[], p: Vec3): number => {
         const vi = i * 3;
         const vj = j * 3;
         if (
-            verts[vi + 2] > p[2] !== verts[vj + 2] > p[2] &&
-            p[0] < ((verts[vj] - verts[vi]) * (p[2] - verts[vi + 2])) / (verts[vj + 2] - verts[vi + 2]) + verts[vi]
+            verts[vi] > p[0] !== verts[vj] > p[0] &&
+            p[1] < ((verts[vj + 1] - verts[vi + 1]) * (p[0] - verts[vi])) / (verts[vj] - verts[vi]) + verts[vi + 1]
         ) {
             c = c === 0 ? 1 : 0;
         }
@@ -276,25 +276,25 @@ export const distToPoly = (nvert: number, verts: number[], p: Vec3): number => {
  * @returns Height at position, or NaN if point is not inside triangle
  */
 export const closestHeightPointTriangle = (p: Vec3, a: Vec3, b: Vec3, c: Vec3): number => {
-    const v0x = c[0] - a[0];
     const v0y = c[1] - a[1];
     const v0z = c[2] - a[2];
+    const v0x = c[0] - a[0];
 
-    const v1x = b[0] - a[0];
     const v1y = b[1] - a[1];
     const v1z = b[2] - a[2];
+    const v1x = b[0] - a[0];
 
+    const v2y = p[1] - a[1];
     const v2x = p[0] - a[0];
-    const v2z = p[2] - a[2];
 
     // Compute scaled barycentric coordinates
-    let denom = v0x * v1z - v0z * v1x;
+    let denom = v0y * v1x - v0x * v1y;
     if (Math.abs(denom) < EPS) {
         return NaN;
     }
 
-    let u = v1z * v2x - v1x * v2z;
-    let v = v0x * v2z - v0z * v2x;
+    let u = v1x * v2y - v1y * v2x;
+    let v = v0y * v2x - v0x * v2y;
 
     if (denom < 0) {
         denom = -denom;
@@ -302,9 +302,9 @@ export const closestHeightPointTriangle = (p: Vec3, a: Vec3, b: Vec3, c: Vec3): 
         v = -v;
     }
 
-    // If point lies inside the triangle, return interpolated ycoord.
+    // If point lies inside the triangle, return interpolated zcoord.
     if (u >= 0.0 && v >= 0.0 && u + v <= denom) {
-        return a[1] + (v0y * u + v1y * v) / denom;
+        return a[2] + (v0z * u + v1z * v) / denom;
     }
 
     return NaN;
@@ -343,14 +343,14 @@ export const overlapSegSeg2d = (a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean => 
 };
 
 /**
- * 2D signed area in XZ plane (positive if c is to the left of ab)
+ * 2D signed area in XY plane (positive if c is to the left of ab)
  */
 export const triArea2D = (a: Vec3, b: Vec3, c: Vec3): number => {
+    const aby = b[1] - a[1];
     const abx = b[0] - a[0];
-    const abz = b[2] - a[2];
+    const acy = c[1] - a[1];
     const acx = c[0] - a[0];
-    const acz = c[2] - a[2];
-    return acx * abz - abx * acz;
+    return acy * abx - aby * acx;
 };
 
 export type IntersectSegSeg2DResult = { hit: boolean; s: number; t: number };
@@ -362,26 +362,26 @@ export const createIntersectSegSeg2DResult = (): IntersectSegSeg2DResult => ({
 });
 
 /**
- * Segment-segment intersection in XZ plane.
+ * Segment-segment intersection in XY plane.
  * Returns { hit, s, t } where
  *  P = a + s*(b-a) and Q = c + t*(d-c). Hit only if both s and t are within [0,1].
  */
 export const intersectSegSeg2D = (out: IntersectSegSeg2DResult, a: Vec3, b: Vec3, c: Vec3, d: Vec3): IntersectSegSeg2DResult => {
+    const bay = b[1] - a[1];
     const bax = b[0] - a[0];
-    const baz = b[2] - a[2];
+    const dcy = d[1] - c[1];
     const dcx = d[0] - c[0];
-    const dcz = d[2] - c[2];
+    const acy = a[1] - c[1];
     const acx = a[0] - c[0];
-    const acz = a[2] - c[2];
-    const denom = dcz * bax - dcx * baz;
+    const denom = dcx * bay - dcy * bax;
     if (Math.abs(denom) < 1e-12) {
         out.hit = false;
         out.s = 0;
         out.t = 0;
         return out;
     }
-    const s = (dcx * acz - dcz * acx) / denom;
-    const t = (bax * acz - baz * acx) / denom;
+    const s = (dcy * acx - dcx * acy) / denom;
+    const t = (bay * acx - bax * acy) / denom;
     const hit = !(s < 0 || s > 1 || t < 0 || t > 1);
     out.hit = hit;
     out.s = s;
@@ -421,14 +421,14 @@ export const polyMinExtent = (verts: number[], nverts: number): number => {
 };
 
 /**
- * Derives the xz-plane 2D perp product of the two vectors. (uz*vx - ux*vz)
- * The vectors are projected onto the xz-plane, so the y-values are ignored.
- * @param u The LHV vector [(x, y, z)]
- * @param v The RHV vector [(x, y, z)]
+ * Derives the xy-plane 2D perp product of the two vectors. (ux*vy - uy*vx)
+ * The vectors are projected onto the xy-plane, so the z-values are ignored.
+ * @param u The LHV vector [(y, z, x)]
+ * @param v The RHV vector [(y, z, x)]
  * @returns The perp dot product on the xz-plane.
  */
 const vperp2D = (u: Vec3, v: Vec3): number => {
-    return u[2] * v[0] - u[0] * v[2];
+    return u[0] * v[1] - u[1] * v[0];
 };
 
 export type IntersectSegmentPoly2DResult = {
@@ -454,13 +454,13 @@ const _intersectSegmentPoly2DToStart = vec3.create();
 const _intersectSegmentPoly2DEdge = vec3.create();
 
 /**
- * Intersects a segment with a polygon in 2D (ignoring Y).
+ * Intersects a segment with a polygon in 2D (ignoring Z).
  * Uses the Sutherland-Hodgman clipping algorithm approach.
  *
  * @param result The result object to store intersection data
  * @param startPosition Start position of the segment
  * @param endPosition End position of the segment
- * @param verts Polygon vertices as flat array [x,y,z,x,y,z,...]
+ * @param verts Polygon vertices as flat array [y,z,x,y,z,x,...]
  * @param nv Number of vertices in the polygon
  */
 export const intersectSegmentPoly2D = (
@@ -539,11 +539,11 @@ const _randomPointInConvexPolyVc = vec3.create();
 /**
  * Generates a random point inside a convex polygon using barycentric coordinates.
  *
- * @param verts - Polygon vertices as flat array [x,y,z,x,y,z,...]
+ * @param verts - Polygon vertices as flat array [y,z,x,y,z,x,...]
  * @param areas - Temporary array for triangle areas (will be modified)
  * @param s - Random value [0,1] for triangle selection
  * @param t - Random value [0,1] for point within triangle
- * @param out - Output point [x,y,z]
+ * @param out - Output point [y,z,x]
  */
 export const randomPointInConvexPoly = (out: Vec3, nv: number, verts: number[], areas: number[], s: number, t: number): Vec3 => {
     // calculate cumulative triangle areas for weighted selection
@@ -592,16 +592,16 @@ export const randomPointInConvexPoly = (out: Vec3, nv: number, verts: number[], 
 /**
  * Projects a polygon onto an axis and returns the min/max projection values.
  * @param out Output tuple [min, max]
- * @param axis The axis to project onto [x, z]
- * @param verts Polygon vertices [x,y,z,x,y,z,...]
+ * @param axis The axis to project onto [y, x]
+ * @param verts Polygon vertices [y,z,x,y,z,x,...]
  * @param nverts Number of vertices
  */
 const projectPoly = (out: [number, number], axis: Vec2, verts: number[], nverts: number): void => {
-    let min = axis[0] * verts[0] + axis[1] * verts[2]; // dot product with first vertex (x,z)
+    let min = axis[0] * verts[1] + axis[1] * verts[0]; // dot product with first vertex (y,x)
     let max = min;
 
     for (let i = 1; i < nverts; i++) {
-        const dot = axis[0] * verts[i * 3] + axis[1] * verts[i * 3 + 2]; // dot product (x,z)
+        const dot = axis[0] * verts[i * 3 + 1] + axis[1] * verts[i * 3]; // dot product (y,x)
         min = Math.min(min, dot);
         max = Math.max(max, dot);
     }
@@ -630,13 +630,13 @@ const _overlapPolyPolyProjA: [number, number] = [0, 0];
 const _overlapPolyPolyProjB: [number, number] = [0, 0];
 
 /**
- * Tests if two convex polygons overlap in 2D (XZ plane).
+ * Tests if two convex polygons overlap in 2D (XY plane).
  * Uses the separating axis theorem - matches the C++ dtOverlapPolyPoly2D implementation.
- * All vertices are projected onto the xz-plane, so the y-values are ignored.
+ * All vertices are projected onto the xy-plane, so the z-values are ignored.
  *
- * @param vertsA Vertices of the first polygon [x,y,z,x,y,z,...]
+ * @param vertsA Vertices of the first polygon [y,z,x,y,z,x,...]
  * @param nvertsA Number of vertices in the first polygon
- * @param vertsB Vertices of the second polygon [x,y,z,x,y,z,...]
+ * @param vertsB Vertices of the second polygon [y,z,x,y,z,x,...]
  * @param nvertsB Number of vertices in the second polygon
  * @returns True if the polygons overlap
  */
@@ -648,15 +648,15 @@ export const overlapPolyPoly2D = (vertsA: number[], nvertsA: number, vertsB: num
         const va = _overlapPolyPolyVa;
         const vb = _overlapPolyPolyVb;
 
-        va[0] = vertsA[j * 3]; // x
-        va[1] = vertsA[j * 3 + 2]; // z
-        vb[0] = vertsA[i * 3]; // x
-        vb[1] = vertsA[i * 3 + 2]; // z
+        va[0] = vertsA[j * 3 + 1]; // y
+        va[1] = vertsA[j * 3]; // x
+        vb[0] = vertsA[i * 3 + 1]; // y
+        vb[1] = vertsA[i * 3]; // x
 
-        // Calculate edge normal: n = { vb[z]-va[z], -(vb[x]-va[x]) }
+        // Calculate edge normal: n = { vb[x]-va[x], -(vb[y]-va[y]) }
         const normal = _overlapPolyPolyNormal;
-        normal[0] = vb[1] - va[1]; // z component
-        normal[1] = -(vb[0] - va[0]); // negative x component
+        normal[0] = vb[1] - va[1]; // x component
+        normal[1] = -(vb[0] - va[0]); // negative y component
 
         // Project both polygons onto this normal
         const projA = _overlapPolyPolyProjA;
@@ -676,15 +676,15 @@ export const overlapPolyPoly2D = (vertsA: number[], nvertsA: number, vertsB: num
         const va = _overlapPolyPolyVa;
         const vb = _overlapPolyPolyVb;
 
-        va[0] = vertsB[j * 3]; // x
-        va[1] = vertsB[j * 3 + 2]; // z
-        vb[0] = vertsB[i * 3]; // x
-        vb[1] = vertsB[i * 3 + 2]; // z
+        va[0] = vertsB[j * 3 + 1]; // y
+        va[1] = vertsB[j * 3]; // x
+        vb[0] = vertsB[i * 3 + 1]; // y
+        vb[1] = vertsB[i * 3]; // x
 
-        // Calculate edge normal: n = { vb[z]-va[z], -(vb[x]-va[x]) }
+        // Calculate edge normal: n = { vb[x]-va[x], -(vb[y]-va[y]) }
         const normal = _overlapPolyPolyNormal;
-        normal[0] = vb[1] - va[1]; // z component
-        normal[1] = -(vb[0] - va[0]); // negative x component
+        normal[0] = vb[1] - va[1]; // x component
+        normal[1] = -(vb[0] - va[0]); // negative y component
 
         // Project both polygons onto this normal
         const projA = _overlapPolyPolyProjA;

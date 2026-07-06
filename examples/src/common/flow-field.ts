@@ -1,4 +1,4 @@
-import { getNodeByRef, INVALID_NODE_REF, type NavMesh, type NodeRef, type QueryFilter } from 'navcat';
+import { getNodeByRef, INVALID_NODE_REF, type NavMesh, type NodeRef, type QueryFilter } from 'navcat-zup';
 
 export type FlowField = {
     cost: Map<NodeRef, number>;

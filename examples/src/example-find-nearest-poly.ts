@@ -4,13 +4,13 @@ import {
     DEFAULT_QUERY_FILTER,
     findNearestPoly,
     type NodeRef,
-} from 'navcat';
+} from 'navcat-zup';
 import {
     generateTiledNavMesh,
     type TiledNavMeshInput,
     type TiledNavMeshOptions,
-} from 'navcat/blocks';
-import { createNavMeshHelper, createNavMeshPolyHelper, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup/blocks';
+import { createNavMeshHelper, createNavMeshPolyHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { createExample } from './common/example-base';
@@ -20,7 +20,7 @@ import { loadGLTF } from './common/load-gltf';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -114,7 +114,7 @@ const pointMesh = new THREE.Mesh(
 scene.add(pointMesh);
 
 const arrow = new THREE.ArrowHelper(
-    new THREE.Vector3(0, 1, 0),
+    new THREE.Vector3(0, 0, 1),
     pointMesh.position,
     1,
     0xffff00,
@@ -140,9 +140,9 @@ const updateNearestPoly = (point: Vec3) => {
 
     pointMesh.position.fromArray(nearestPoly.position);
 
-    arrow.setDirection(new THREE.Vector3(0, -1, 0));
+    arrow.setDirection(new THREE.Vector3(0, 0, -1));
     arrow.position.copy(pointMesh.position);
-    arrow.position.y += 1.5;
+    arrow.position.z += 1.5;
 
     const nearestPolyElement = document.getElementById('nearest-poly')!;
     nearestPolyElement.textContent = String(nearestPoly.nodeRef);
@@ -157,14 +157,14 @@ const updateNearestPoly = (point: Vec3) => {
 
         // Create new poly helper
         polyHelper = createNavMeshPolyHelper(navMesh, nearestPoly.nodeRef, [1, 0.5, 0]);
-        polyHelper.object.position.y += 0.15;
+        polyHelper.object.position.z += 0.15;
         scene.add(polyHelper.object);
 
         currentPolyRef = nearestPoly.nodeRef;
     }
 };
 
-updateNearestPoly([-3.94, 0.26, 4.71]);
+updateNearestPoly([4.71, -3.94, 0.26]);
 
 /* update nearest poly on pointer move */
 const raycaster = new THREE.Raycaster();

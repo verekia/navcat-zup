@@ -17,8 +17,8 @@ describe('moveAlongSurface', () => {
     test('should move within single polygon', () => {
         const navMesh = createSimpleQuadNavMesh();
 
-        const startPos: Vec3 = [0.5, 0, 0.5];
-        const endPos: Vec3 = [0.8, 0, 0.8];
+        const startPos: Vec3 = [0.5, 0.5, 0];
+        const endPos: Vec3 = [0.8, 0.8, 0];
 
         const startNodeRef = navMesh.nodes[0].ref;
 
@@ -33,8 +33,8 @@ describe('moveAlongSurface', () => {
     test('should move across two adjacent triangles', () => {
         const navMesh = createSimpleQuadNavMesh();
 
-        const startPos: Vec3 = [1.5, 0, 0.5];
-        const endPos: Vec3 = [0.5, 0, 1.5];
+        const startPos: Vec3 = [0.5, 1.5, 0];
+        const endPos: Vec3 = [1.5, 0.5, 0];
 
         const startNodeRef = navMesh.nodes[0].ref;
 
@@ -48,8 +48,8 @@ describe('moveAlongSurface', () => {
     test('should handle small movement within polygon', () => {
         const navMesh = createSimpleQuadNavMesh();
 
-        const startPos: Vec3 = [1.0, 0, 1.0];
-        const endPos: Vec3 = [1.015, 0, 1.0];
+        const startPos: Vec3 = [1.0, 1.0, 0];
+        const endPos: Vec3 = [1.0, 1.015, 0];
 
         const startNodeRef = navMesh.nodes[0].ref;
 
@@ -62,8 +62,8 @@ describe('moveAlongSurface', () => {
     test('should move across long thin corridor', () => {
         const navMesh = createLongCorridorNavMesh();
 
-        const startPos: Vec3 = [0.5, 0, 0.5];
-        const endPos: Vec3 = [9.5, 0, 0.5];
+        const startPos: Vec3 = [0.5, 0.5, 0];
+        const endPos: Vec3 = [0.5, 9.5, 0];
 
         const startNodeRef = navMesh.nodes[0].ref;
 
@@ -76,12 +76,12 @@ describe('moveAlongSurface', () => {
     test('should handle small movement that crosses polygon boundary', () => {
         const navMesh = createSimpleQuadNavMesh();
 
-        // Triangle 0: [(0,0,0), (2,0,0), (2,0,2)]
-        // Triangle 1: [(0,0,0), (2,0,2), (0,0,2)]
-        // Shared edge: (0,0,0) to (2,0,2) - diagonal at z=x
+        // Triangle 0: [(0,0,0), (0,2,0), (2,2,0)]
+        // Triangle 1: [(0,0,0), (2,2,0), (2,0,0)]
+        // Shared edge: (0,0,0) to (2,2,0) - diagonal at x=y
         
-        const startPos: Vec3 = [1.0, 0, 0.5]; // Triangle 0 (below diagonal)
-        const endPos: Vec3 = [1.0, 0, 1.5];   // Triangle 1 (above diagonal)
+        const startPos: Vec3 = [0.5, 1.0, 0]; // Triangle 0 (below diagonal)
+        const endPos: Vec3 = [1.5, 1.0, 0];   // Triangle 1 (above diagonal)
 
         const startNodeRef = navMesh.nodes[0].ref;
 
@@ -95,8 +95,8 @@ describe('moveAlongSurface', () => {
         const navMesh = createSimpleQuadNavMesh();
 
         // Movement similar to crowd simulation (0.015 units)
-        const startPos: Vec3 = [1.0, 0, 0.9925]; // Just below diagonal
-        const endPos: Vec3 = [1.0, 0, 1.0075];   // Just above diagonal
+        const startPos: Vec3 = [0.9925, 1.0, 0]; // Just below diagonal
+        const endPos: Vec3 = [1.0075, 1.0, 0];   // Just above diagonal
 
         const startNodeRef = navMesh.nodes[0].ref;
 
@@ -109,24 +109,24 @@ describe('moveAlongSurface', () => {
     test('should stop at wall when target is outside navmesh', () => {
         const navMesh = createSimpleQuadNavMesh();
 
-        const startPos: Vec3 = [1.0, 0, 1.0];
-        const endPos: Vec3 = [5.0, 0, 1.0]; // Way outside the 2x2 quad
+        const startPos: Vec3 = [1.0, 1.0, 0];
+        const endPos: Vec3 = [1.0, 5.0, 0]; // Way outside the 2x2 quad
 
         const startNodeRef = navMesh.nodes[0].ref;
 
         const result = moveAlongSurface(navMesh, startNodeRef, startPos, endPos, DEFAULT_QUERY_FILTER);
 
         expect(result.success).toBe(true);
-        // Should stop at the edge (x=2)
-        expect(result.position[0]).toBeLessThanOrEqual(2.0);
-        expect(result.position[0]).toBeGreaterThan(1.9);
+        // Should stop at the edge (y=2)
+        expect(result.position[1]).toBeLessThanOrEqual(2.0);
+        expect(result.position[1]).toBeGreaterThan(1.9);
     });
 
     test('when start position is outside starting polygon, should snap to nearest wall edge', () => {
         const navMesh = createSimpleQuadNavMesh();
 
-        const startPos: Vec3 = [1.0, 0, 1.5];
-        const endPos: Vec3 = [1.0, 0, 1.52];
+        const startPos: Vec3 = [1.5, 1.0, 0];
+        const endPos: Vec3 = [1.52, 1.0, 0];
 
         const startNodeRef = navMesh.nodes[0].ref;
 
@@ -147,9 +147,9 @@ function createSimpleQuadNavMesh(): NavMesh {
     const navMeshPositions = [
         // quad vertices (indices 0-3)
         0, 0, 0,      // 0: bottom-left
-        2, 0, 0,      // 1: bottom-right
-        2, 0, 2,      // 2: top-right
-        0, 0, 2,      // 3: top-left
+        0, 2, 0,      // 1: bottom-right
+        2, 2, 0,      // 2: top-right
+        2, 0, 0,      // 3: top-left
     ];
 
     // biome-ignore format: readability
@@ -179,9 +179,9 @@ function createLongCorridorNavMesh(): NavMesh {
     for (let i = 0; i <= numSegments; i++) {
         const x = i * segmentLength;
         // Bottom edge
-        positions.push(x, 0, 0);
+        positions.push(0, x, 0);
         // Top edge
-        positions.push(x, 0, corridorWidth);
+        positions.push(corridorWidth, x, 0);
     }
 
     // Create triangles for each segment
@@ -248,8 +248,8 @@ function buildNavMeshFromGeometry(positions: number[], indices: number[]): NavMe
 
     const navMesh = createNavMesh();
     navMesh.origin = [bounds[0], bounds[1], bounds[2]];
-    navMesh.tileWidth = bounds[3] - bounds[0];
-    navMesh.tileHeight = bounds[5] - bounds[2];
+    navMesh.tileWidth = bounds[4] - bounds[1];
+    navMesh.tileHeight = bounds[3] - bounds[0];
 
     addTile(navMesh, tile);
 

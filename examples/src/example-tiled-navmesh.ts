@@ -1,5 +1,5 @@
 import GUI from 'lil-gui';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
 import {
     createCompactHeightfieldDistancesHelper,
     createCompactHeightfieldRegionsHelper,
@@ -16,7 +16,7 @@ import {
     createTriangleAreaIdsHelper,
     getPositionsAndIndices,
     type DebugObject,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { createExample } from './common/example-base';
@@ -26,7 +26,7 @@ import { loadGLTF } from './common/load-gltf';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -268,7 +268,7 @@ function updateDebugHelpers() {
 
     if (debugConfig.showNavMesh) {
         debugHelpers.navMesh = createNavMeshHelper(navMesh);
-        debugHelpers.navMesh.object.position.y += 0.1;
+        debugHelpers.navMesh.object.position.z += 0.1;
         scene.add(debugHelpers.navMesh.object);
     }
 

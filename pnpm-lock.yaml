@@ -51,7 +51,7 @@ importers:
 
   docs/snippets:
     dependencies:
-      navcat:
+      navcat-zup:
         specifier: workspace:*
         version: link:../..
 
@@ -63,7 +63,7 @@ importers:
       lil-gui:
         specifier: ^0.21.0
         version: 0.21.0
-      navcat:
+      navcat-zup:
         specifier: workspace:*
         version: link:..
       three:
@@ -85,7 +85,7 @@ importers:
 
   website:
     dependencies:
-      navcat:
+      navcat-zup:
         specifier: workspace:*
         version: link:..
       three:

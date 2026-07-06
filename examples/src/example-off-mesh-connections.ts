@@ -8,15 +8,15 @@ import {
     OffMeshConnectionDirection,
     type OffMeshConnectionParams,
     type QueryFilter,
-} from 'navcat';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
+} from 'navcat-zup';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
 import {
     createNavMeshHelper,
     createNavMeshOffMeshConnectionsHelper,
     createNavMeshPolyHelper,
     createSearchNodesHelper,
     getPositionsAndIndices,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import * as THREE from 'three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
@@ -29,7 +29,7 @@ import { createFlag } from './common/flag';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -142,40 +142,40 @@ const queryFilter: QueryFilter = {
 /* add off mesh connections */
 const offMeshConnections: OffMeshConnectionParams[] = [
     {
-        start: [-2.4799404316645157, 0.26716880587122915, 4.039628947351325],
-        end: [-2.735661224133032, 2.3264200687408447, 0.9084349415865054],
+        start: [4.039628947351325, -2.4799404316645157, 0.26716880587122915],
+        end: [0.9084349415865054, -2.735661224133032, 2.3264200687408447],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         area: OffMeshConnectionAreaType.TELEPORTER,
         flags: 0xffffff,
     },
     {
-        start: [0.43153271761444056, 3.788429404449852, 2.549912418335899],
-        end: [1.6203363597139502, 2.7055995008052136, 3.3892644209191634],
+        start: [2.549912418335899, 0.43153271761444056, 3.788429404449852],
+        end: [3.3892644209191634, 1.6203363597139502, 2.7055995008052136],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         area: OffMeshConnectionAreaType.JUMP,
         flags: 0xffffff,
     },
     {
-        start: [0.5997826320925559, 0.2668087168256541, 4.967287730406272],
-        end: [1.580858144475107, 3.112976869830365, 4.670723413649996],
+        start: [4.967287730406272, 0.5997826320925559, 0.2668087168256541],
+        end: [4.670723413649996, 1.580858144475107, 3.112976869830365],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         area: OffMeshConnectionAreaType.CLIMB,
         flags: 0xffffff,
     },
     {
-        start: [3.54, 0.27, -3.89],
-        end: [6.09, 0.69, -3.59],
+        start: [-3.89, 3.54, 0.27],
+        end: [-3.59, 6.09, 0.69],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         area: 0,
         flags: 0xffffff,
     },
     {
-        start: [6.09, 0.69, -3.59],
-        end: [6.55, 0.39, -0.68],
+        start: [-3.59, 6.09, 0.69],
+        end: [-0.68, 6.55, 0.39],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         area: 0,
@@ -189,15 +189,15 @@ for (const connection of offMeshConnections) {
 
 /* create debug helpers */
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 const offMeshConnectionsHelper = createNavMeshOffMeshConnectionsHelper(navMesh);
 scene.add(offMeshConnectionsHelper.object);
 
 /* find path */
-let start: Vec3 = [-2.2, 0.26, 4.71];
-let end: Vec3 = [3.4, 2.8, 3.6];
+let start: Vec3 = [4.71, -2.2, 0.26];
+let end: Vec3 = [3.6, 3.4, 2.8];
 const halfExtents: Vec3 = [1, 1, 1];
 
 type Visual = { object: THREE.Object3D; dispose: () => void };
@@ -246,7 +246,7 @@ function updatePath() {
 
                 if (getNodeRefType(node) === NodeType.POLY) {
                     const polyHelper = createNavMeshPolyHelper(navMesh, node);
-                    polyHelper.object.position.y += 0.15;
+                    polyHelper.object.position.z += 0.15;
                     addVisual({
                         object: polyHelper.object,
                         dispose: () => {

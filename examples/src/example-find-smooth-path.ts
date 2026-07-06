@@ -8,15 +8,15 @@ import {
     NodeType,
     OffMeshConnectionDirection,
     type OffMeshConnectionParams,
-} from 'navcat';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
+} from 'navcat-zup';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
 import {
     createNavMeshHelper,
     createNavMeshOffMeshConnectionsHelper,
     createNavMeshPolyHelper,
     createSearchNodesHelper,
     getPositionsAndIndices,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import * as THREE from 'three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
@@ -29,7 +29,7 @@ import { createFlag } from './common/flag';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -109,16 +109,16 @@ const navMesh = navMeshResult.navMesh;
 /* add off mesh connections */
 const offMeshConnections: OffMeshConnectionParams[] = [
     {
-        start: [3.54, 0.27, -3.89],
-        end: [6.09, 0.69, -3.59],
+        start: [-3.89, 3.54, 0.27],
+        end: [-3.59, 6.09, 0.69],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         area: 0,
         flags: 0xffffff,
     },
     {
-        start: [6.09, 0.69, -3.59],
-        end: [6.55, 0.39, -0.68],
+        start: [-3.59, 6.09, 0.69],
+        end: [-0.68, 6.55, 0.39],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         area: 0,
@@ -131,15 +131,15 @@ for (const connection of offMeshConnections) {
 }
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 const offMeshConnectionsHelper = createNavMeshOffMeshConnectionsHelper(navMesh);
 scene.add(offMeshConnectionsHelper.object);
 
 /* find smooth path */
-let start: Vec3 = [-3.94, 0.26, 4.71];
-let end: Vec3 = [1.01, 2.38, -1.93];
+let start: Vec3 = [4.71, -3.94, 0.26];
+let end: Vec3 = [-1.93, 1.01, 2.38];
 const halfExtents: Vec3 = [1, 1, 1];
 let stepSize = 0.3;
 let slop = 0.01;
@@ -211,7 +211,7 @@ function updatePath() {
                 const node = nodePath.path[i];
                 if (getNodeRefType(node) === NodeType.POLY) {
                     const polyHelper = createNavMeshPolyHelper(navMesh, node);
-                    polyHelper.object.position.y += 0.15;
+                    polyHelper.object.position.z += 0.15;
                     addVisual(polyHelper);
                 }
             }
@@ -228,7 +228,7 @@ function updatePath() {
                 const sphereMat = new THREE.MeshBasicMaterial({ color: colorThree });
                 const sphere = new THREE.Mesh(sphereGeom, sphereMat);
                 sphere.position.set(...point.position);
-                sphere.position.y += 0.2;
+                sphere.position.z += 0.2;
 
                 addVisual({
                     object: sphere,
@@ -245,8 +245,8 @@ function updatePath() {
                     const start = new THREE.Vector3(...prevPoint.position);
                     const end = new THREE.Vector3(...point.position);
 
-                    start.y += 0.2;
-                    end.y += 0.2;
+                    start.z += 0.2;
+                    end.z += 0.2;
 
                     geometry.setFromPoints([start, end]);
 

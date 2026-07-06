@@ -18,9 +18,9 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
     distances.fill(0xffff);
 
     // mark boundary cells
-    for (let y = 0; y < h; ++y) {
-        for (let x = 0; x < w; ++x) {
-            const cell = compactHeightfield.cells[x + y * w];
+    for (let x = 0; x < h; ++x) {
+        for (let y = 0; y < w; ++y) {
+            const cell = compactHeightfield.cells[y + x * w];
             for (let i = cell.index; i < cell.index + cell.count; ++i) {
                 const span = compactHeightfield.spans[i];
                 const area = compactHeightfield.areas[i];
@@ -28,9 +28,9 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
                 let neighborCount = 0;
                 for (let dir = 0; dir < 4; ++dir) {
                     if (getCon(span, dir) !== NOT_CONNECTED) {
-                        const ax = x + DIR_OFFSETS[dir][0];
-                        const ay = y + DIR_OFFSETS[dir][1];
-                        const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, dir);
+                        const ay = y + DIR_OFFSETS[dir][0];
+                        const ax = x + DIR_OFFSETS[dir][1];
+                        const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, dir);
                         if (area === compactHeightfield.areas[ai]) {
                             neighborCount++;
                         }
@@ -44,17 +44,17 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
     }
 
     // pass 1: forward pass
-    for (let y = 0; y < h; ++y) {
-        for (let x = 0; x < w; ++x) {
-            const cell = compactHeightfield.cells[x + y * w];
+    for (let x = 0; x < h; ++x) {
+        for (let y = 0; y < w; ++y) {
+            const cell = compactHeightfield.cells[y + x * w];
             for (let i = cell.index; i < cell.index + cell.count; ++i) {
                 const span = compactHeightfield.spans[i];
 
                 if (getCon(span, 0) !== NOT_CONNECTED) {
                     // (-1,0) - west
-                    const ax = x + DIR_OFFSETS[0][0];
-                    const ay = y + DIR_OFFSETS[0][1];
-                    const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, 0);
+                    const ay = y + DIR_OFFSETS[0][0];
+                    const ax = x + DIR_OFFSETS[0][1];
+                    const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, 0);
                     const aSpan = compactHeightfield.spans[ai];
                     if (distances[ai] + 2 < distances[i]) {
                         distances[i] = distances[ai] + 2;
@@ -62,9 +62,9 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
 
                     // (-1,-1) - northwest
                     if (getCon(aSpan, 3) !== NOT_CONNECTED) {
-                        const aax = ax + DIR_OFFSETS[3][0];
-                        const aay = ay + DIR_OFFSETS[3][1];
-                        const aai = compactHeightfield.cells[aax + aay * w].index + getCon(aSpan, 3);
+                        const aay = ay + DIR_OFFSETS[3][0];
+                        const aax = ax + DIR_OFFSETS[3][1];
+                        const aai = compactHeightfield.cells[aay + aax * w].index + getCon(aSpan, 3);
                         if (distances[aai] + 3 < distances[i]) {
                             distances[i] = distances[aai] + 3;
                         }
@@ -73,9 +73,9 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
 
                 if (getCon(span, 3) !== NOT_CONNECTED) {
                     // (0,-1) - north
-                    const ax = x + DIR_OFFSETS[3][0];
-                    const ay = y + DIR_OFFSETS[3][1];
-                    const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, 3);
+                    const ay = y + DIR_OFFSETS[3][0];
+                    const ax = x + DIR_OFFSETS[3][1];
+                    const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, 3);
                     const aSpan = compactHeightfield.spans[ai];
                     if (distances[ai] + 2 < distances[i]) {
                         distances[i] = distances[ai] + 2;
@@ -83,9 +83,9 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
 
                     // (1,-1) - northeast
                     if (getCon(aSpan, 2) !== NOT_CONNECTED) {
-                        const aax = ax + DIR_OFFSETS[2][0];
-                        const aay = ay + DIR_OFFSETS[2][1];
-                        const aai = compactHeightfield.cells[aax + aay * w].index + getCon(aSpan, 2);
+                        const aay = ay + DIR_OFFSETS[2][0];
+                        const aax = ax + DIR_OFFSETS[2][1];
+                        const aai = compactHeightfield.cells[aay + aax * w].index + getCon(aSpan, 2);
                         if (distances[aai] + 3 < distances[i]) {
                             distances[i] = distances[aai] + 3;
                         }
@@ -96,17 +96,17 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
     }
 
     // pass 2: backward pass
-    for (let y = h - 1; y >= 0; --y) {
-        for (let x = w - 1; x >= 0; --x) {
-            const cell = compactHeightfield.cells[x + y * w];
+    for (let x = h - 1; x >= 0; --x) {
+        for (let y = w - 1; y >= 0; --y) {
+            const cell = compactHeightfield.cells[y + x * w];
             for (let i = cell.index; i < cell.index + cell.count; ++i) {
                 const span = compactHeightfield.spans[i];
 
                 if (getCon(span, 2) !== NOT_CONNECTED) {
                     // (1,0) - east
-                    const ax = x + DIR_OFFSETS[2][0];
-                    const ay = y + DIR_OFFSETS[2][1];
-                    const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, 2);
+                    const ay = y + DIR_OFFSETS[2][0];
+                    const ax = x + DIR_OFFSETS[2][1];
+                    const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, 2);
                     const aSpan = compactHeightfield.spans[ai];
                     if (distances[ai] + 2 < distances[i]) {
                         distances[i] = distances[ai] + 2;
@@ -114,9 +114,9 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
 
                     // (1,1) - southeast
                     if (getCon(aSpan, 1) !== NOT_CONNECTED) {
-                        const aax = ax + DIR_OFFSETS[1][0];
-                        const aay = ay + DIR_OFFSETS[1][1];
-                        const aai = compactHeightfield.cells[aax + aay * w].index + getCon(aSpan, 1);
+                        const aay = ay + DIR_OFFSETS[1][0];
+                        const aax = ax + DIR_OFFSETS[1][1];
+                        const aai = compactHeightfield.cells[aay + aax * w].index + getCon(aSpan, 1);
                         if (distances[aai] + 3 < distances[i]) {
                             distances[i] = distances[aai] + 3;
                         }
@@ -125,9 +125,9 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
 
                 if (getCon(span, 1) !== NOT_CONNECTED) {
                     // (0,1) - south
-                    const ax = x + DIR_OFFSETS[1][0];
-                    const ay = y + DIR_OFFSETS[1][1];
-                    const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, 1);
+                    const ay = y + DIR_OFFSETS[1][0];
+                    const ax = x + DIR_OFFSETS[1][1];
+                    const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, 1);
                     const aSpan = compactHeightfield.spans[ai];
                     if (distances[ai] + 2 < distances[i]) {
                         distances[i] = distances[ai] + 2;
@@ -135,9 +135,9 @@ const calculateDistanceField = (compactHeightfield: CompactHeightfield, distance
 
                     // (-1,1) - southwest
                     if (getCon(aSpan, 0) !== NOT_CONNECTED) {
-                        const aax = ax + DIR_OFFSETS[0][0];
-                        const aay = ay + DIR_OFFSETS[0][1];
-                        const aai = compactHeightfield.cells[aax + aay * w].index + getCon(aSpan, 0);
+                        const aay = ay + DIR_OFFSETS[0][0];
+                        const aax = ax + DIR_OFFSETS[0][1];
+                        const aai = compactHeightfield.cells[aay + aax * w].index + getCon(aSpan, 0);
                         if (distances[aai] + 3 < distances[i]) {
                             distances[i] = distances[aai] + 3;
                         }
@@ -170,9 +170,9 @@ const boxBlur = (
 
     const scaledThreshold = threshold * 2;
 
-    for (let y = 0; y < h; ++y) {
-        for (let x = 0; x < w; ++x) {
-            const cell = compactHeightfield.cells[x + y * w];
+    for (let x = 0; x < h; ++x) {
+        for (let y = 0; y < w; ++y) {
+            const cell = compactHeightfield.cells[y + x * w];
             for (let i = cell.index; i < cell.index + cell.count; ++i) {
                 const span = compactHeightfield.spans[i];
                 const cd = srcDistances[i];
@@ -185,17 +185,17 @@ const boxBlur = (
                 let d = cd;
                 for (let dir = 0; dir < 4; ++dir) {
                     if (getCon(span, dir) !== NOT_CONNECTED) {
-                        const ax = x + DIR_OFFSETS[dir][0];
-                        const ay = y + DIR_OFFSETS[dir][1];
-                        const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, dir);
+                        const ay = y + DIR_OFFSETS[dir][0];
+                        const ax = x + DIR_OFFSETS[dir][1];
+                        const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, dir);
                         d += srcDistances[ai];
 
                         const aSpan = compactHeightfield.spans[ai];
                         const dir2 = (dir + 1) & 0x3;
                         if (getCon(aSpan, dir2) !== NOT_CONNECTED) {
-                            const ax2 = ax + DIR_OFFSETS[dir2][0];
-                            const ay2 = ay + DIR_OFFSETS[dir2][1];
-                            const ai2 = compactHeightfield.cells[ax2 + ay2 * w].index + getCon(aSpan, dir2);
+                            const ay2 = ay + DIR_OFFSETS[dir2][0];
+                            const ax2 = ax + DIR_OFFSETS[dir2][1];
+                            const ai2 = compactHeightfield.cells[ay2 + ax2 * w].index + getCon(aSpan, dir2);
                             d += srcDistances[ai2];
                         } else {
                             d += cd;
@@ -228,8 +228,8 @@ export const buildDistanceField = (compactHeightfield: CompactHeightfield): void
 };
 
 type LevelStackEntry = {
-    x: number;
     y: number;
+    x: number;
     index: number;
 };
 
@@ -293,12 +293,12 @@ export const buildRegions = (
         // mark new regions with IDs
         for (let j = 0; j < lvlStacks[sId].length; j++) {
             const current = lvlStacks[sId][j];
-            const x = current.x;
             const y = current.y;
+            const x = current.x;
             const i = current.index;
 
             if (i >= 0 && srcReg[i] === 0) {
-                if (floodRegion(x, y, i, level, regionId, compactHeightfield, srcReg, srcDist, stack)) {
+                if (floodRegion(y, x, i, level, regionId, compactHeightfield, srcReg, srcDist, stack)) {
                     if (regionId === 0xffff) {
                         BuildContext.error(ctx, 'Region ID overflow');
                         return false;
@@ -333,18 +333,18 @@ export const buildRegions = (
  * Paint a rectangular region with the given region ID
  */
 const paintRectRegion = (
-    minx: number,
-    maxx: number,
     miny: number,
     maxy: number,
+    minx: number,
+    maxx: number,
     regId: number,
     compactHeightfield: CompactHeightfield,
     srcReg: number[],
 ) => {
     const w = compactHeightfield.width;
-    for (let y = miny; y < maxy; y++) {
-        for (let x = minx; x < maxx; x++) {
-            const cell = compactHeightfield.cells[x + y * w];
+    for (let x = minx; x < maxx; x++) {
+        for (let y = miny; y < maxy; y++) {
+            const cell = compactHeightfield.cells[y + x * w];
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 if (compactHeightfield.areas[i] !== NULL_AREA) {
                     srcReg[i] = regId;
@@ -362,7 +362,7 @@ const sortCellsByLevel = (
     compactHeightfield: CompactHeightfield,
     srcReg: number[],
     nbStacks: number,
-    stacks: { x: number; y: number; index: number }[][],
+    stacks: { y: number; x: number; index: number }[][],
     logLevelsPerStack: number,
 ) => {
     const w = compactHeightfield.width;
@@ -375,9 +375,9 @@ const sortCellsByLevel = (
     }
 
     // put all cells in the level range into appropriate stacks
-    for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-            const cell = compactHeightfield.cells[x + y * w];
+    for (let x = 0; x < h; x++) {
+        for (let y = 0; y < w; y++) {
+            const cell = compactHeightfield.cells[y + x * w];
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 if (compactHeightfield.areas[i] === NULL_AREA || srcReg[i] !== 0) {
                     continue;
@@ -392,7 +392,7 @@ const sortCellsByLevel = (
                     sId = 0;
                 }
 
-                stacks[sId].push({ x, y, index: i });
+                stacks[sId].push({ y, x, index: i });
             }
         }
     }
@@ -402,8 +402,8 @@ const sortCellsByLevel = (
  * Append entries from source stack to destination stack
  */
 const appendStacks = (
-    srcStack: { x: number; y: number; index: number }[],
-    dstStack: { x: number; y: number; index: number }[],
+    srcStack: { y: number; x: number; index: number }[],
+    dstStack: { y: number; x: number; index: number }[],
     srcReg: number[],
 ) => {
     for (let j = 0; j < srcStack.length; j++) {
@@ -419,22 +419,22 @@ const appendStacks = (
  * Flood fill a region starting from a given point
  */
 const floodRegion = (
-    x: number,
     y: number,
+    x: number,
     i: number,
     level: number,
     r: number,
     compactHeightfield: CompactHeightfield,
     srcReg: number[],
     srcDist: number[],
-    stack: { x: number; y: number; index: number }[],
+    stack: { y: number; x: number; index: number }[],
 ): boolean => {
     const w = compactHeightfield.width;
     const area = compactHeightfield.areas[i];
 
     // flood fill mark region
     stack.length = 0;
-    stack.push({ x, y, index: i });
+    stack.push({ y, x, index: i });
     srcReg[i] = r;
     srcDist[i] = 0;
 
@@ -443,8 +443,8 @@ const floodRegion = (
 
     while (stack.length > 0) {
         const current = stack.pop()!;
-        const cx = current.x;
         const cy = current.y;
+        const cx = current.x;
         const ci = current.index;
 
         const span = compactHeightfield.spans[ci];
@@ -453,9 +453,9 @@ const floodRegion = (
         let ar = 0;
         for (let dir = 0; dir < 4; dir++) {
             if (getCon(span, dir) !== NOT_CONNECTED) {
-                const ax = cx + DIR_OFFSETS[dir][0];
-                const ay = cy + DIR_OFFSETS[dir][1];
-                const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, dir);
+                const ay = cy + DIR_OFFSETS[dir][0];
+                const ax = cx + DIR_OFFSETS[dir][1];
+                const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, dir);
 
                 if (compactHeightfield.areas[ai] !== area) {
                     continue;
@@ -473,9 +473,9 @@ const floodRegion = (
                 const aSpan = compactHeightfield.spans[ai];
                 const dir2 = (dir + 1) & 0x3;
                 if (getCon(aSpan, dir2) !== NOT_CONNECTED) {
-                    const ax2 = ax + DIR_OFFSETS[dir2][0];
-                    const ay2 = ay + DIR_OFFSETS[dir2][1];
-                    const ai2 = compactHeightfield.cells[ax2 + ay2 * w].index + getCon(aSpan, dir2);
+                    const ay2 = ay + DIR_OFFSETS[dir2][0];
+                    const ax2 = ax + DIR_OFFSETS[dir2][1];
+                    const ai2 = compactHeightfield.cells[ay2 + ax2 * w].index + getCon(aSpan, dir2);
 
                     if (compactHeightfield.areas[ai2] !== area) {
                         continue;
@@ -500,9 +500,9 @@ const floodRegion = (
         // expand neighbors
         for (let dir = 0; dir < 4; dir++) {
             if (getCon(span, dir) !== NOT_CONNECTED) {
-                const ax = cx + DIR_OFFSETS[dir][0];
-                const ay = cy + DIR_OFFSETS[dir][1];
-                const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, dir);
+                const ay = cy + DIR_OFFSETS[dir][0];
+                const ax = cx + DIR_OFFSETS[dir][1];
+                const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, dir);
 
                 if (compactHeightfield.areas[ai] !== area) {
                     continue;
@@ -510,7 +510,7 @@ const floodRegion = (
                 if (compactHeightfield.distances[ai] >= lev && srcReg[ai] === 0) {
                     srcReg[ai] = r;
                     srcDist[ai] = 0;
-                    stack.push({ x: ax, y: ay, index: ai });
+                    stack.push({ y: ay, x: ax, index: ai });
                 }
             }
         }
@@ -534,7 +534,7 @@ const expandRegions = (
     compactHeightfield: CompactHeightfield,
     srcReg: number[],
     srcDist: number[],
-    stack: { x: number; y: number; index: number }[],
+    stack: { y: number; x: number; index: number }[],
     fillStack: boolean,
 ) => {
     const w = compactHeightfield.width;
@@ -543,16 +543,16 @@ const expandRegions = (
     if (fillStack) {
         // find cells revealed by the raised level
         stack.length = 0;
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                const cell = compactHeightfield.cells[x + y * w];
+        for (let x = 0; x < h; x++) {
+            for (let y = 0; y < w; y++) {
+                const cell = compactHeightfield.cells[y + x * w];
                 for (let i = cell.index; i < cell.index + cell.count; i++) {
                     if (
                         compactHeightfield.distances[i] >= level &&
                         srcReg[i] === 0 &&
                         compactHeightfield.areas[i] !== NULL_AREA
                     ) {
-                        stack.push({ x, y, index: i });
+                        stack.push({ y, x, index: i });
                     }
                 }
             }
@@ -575,8 +575,8 @@ const expandRegions = (
         dirtyEntries.length = 0;
 
         for (let j = 0; j < stack.length; j++) {
-            const x = stack[j].x;
             const y = stack[j].y;
+            const x = stack[j].x;
             const i = stack[j].index;
 
             if (i < 0) {
@@ -592,9 +592,9 @@ const expandRegions = (
             for (let dir = 0; dir < 4; dir++) {
                 if (getCon(span, dir) === NOT_CONNECTED) continue;
 
-                const ax = x + DIR_OFFSETS[dir][0];
-                const ay = y + DIR_OFFSETS[dir][1];
-                const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, dir);
+                const ay = y + DIR_OFFSETS[dir][0];
+                const ax = x + DIR_OFFSETS[dir][1];
+                const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, dir);
 
                 if (compactHeightfield.areas[ai] !== area) continue;
 
@@ -645,8 +645,8 @@ type Region = {
     visited: boolean;
     overlap: boolean;
     connectsToBorder: boolean;
-    ymin: number;
-    ymax: number;
+    zmin: number;
+    zmax: number;
     connections: number[];
     floors: number[];
 };
@@ -677,17 +677,17 @@ const mergeAndFilterRegions = (
             visited: false,
             overlap: false,
             connectsToBorder: false,
-            ymin: 0xffff,
-            ymax: 0,
+            zmin: 0xffff,
+            zmax: 0,
             connections: [],
             floors: [],
         });
     }
 
     // find edge of a region and find connections around the contour
-    for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-            const cell = compactHeightfield.cells[x + y * w];
+    for (let x = 0; x < h; x++) {
+        for (let y = 0; y < w; y++) {
+            const cell = compactHeightfield.cells[y + x * w];
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 const r = srcReg[i];
                 if (r === 0 || r >= nreg) continue;
@@ -714,7 +714,7 @@ const mergeAndFilterRegions = (
                 // check if this cell is next to a border
                 let ndir = -1;
                 for (let dir = 0; dir < 4; dir++) {
-                    if (isSolidEdge(compactHeightfield, srcReg, x, y, i, dir)) {
+                    if (isSolidEdge(compactHeightfield, srcReg, y, x, i, dir)) {
                         ndir = dir;
                         break;
                     }
@@ -722,7 +722,7 @@ const mergeAndFilterRegions = (
 
                 if (ndir !== -1) {
                     // the cell is at border - walk around the contour to find all neighbors
-                    walkContour(ctx, x, y, i, ndir, compactHeightfield, srcReg, reg.connections);
+                    walkContour(ctx, y, x, i, ndir, compactHeightfield, srcReg, reg.connections);
                 }
             }
         }
@@ -980,17 +980,17 @@ const replaceNeighbor = (reg: Region, oldId: number, newId: number) => {
 const isSolidEdge = (
     compactHeightfield: CompactHeightfield,
     srcReg: number[],
-    x: number,
     y: number,
+    x: number,
     i: number,
     dir: number,
 ): boolean => {
     const span = compactHeightfield.spans[i];
     let r = 0;
     if (getCon(span, dir) !== NOT_CONNECTED) {
-        const ax = x + DIR_OFFSETS[dir][0];
-        const ay = y + DIR_OFFSETS[dir][1];
-        const ai = compactHeightfield.cells[ax + ay * compactHeightfield.width].index + getCon(span, dir);
+        const ay = y + DIR_OFFSETS[dir][0];
+        const ax = x + DIR_OFFSETS[dir][1];
+        const ai = compactHeightfield.cells[ay + ax * compactHeightfield.width].index + getCon(span, dir);
         r = srcReg[ai];
     }
     if (r === srcReg[i]) return false;
@@ -999,8 +999,8 @@ const isSolidEdge = (
 
 const walkContour = (
     ctx: BuildContextState,
-    x: number,
     y: number,
+    x: number,
     i: number,
     dir: number,
     compactHeightfield: CompactHeightfield,
@@ -1013,29 +1013,29 @@ const walkContour = (
     const ss = compactHeightfield.spans[i];
     let curReg = 0;
     if (getCon(ss, dir) !== NOT_CONNECTED) {
-        const ax = x + DIR_OFFSETS[dir][0];
-        const ay = y + DIR_OFFSETS[dir][1];
-        const ai = compactHeightfield.cells[ax + ay * compactHeightfield.width].index + getCon(ss, dir);
+        const ay = y + DIR_OFFSETS[dir][0];
+        const ax = x + DIR_OFFSETS[dir][1];
+        const ai = compactHeightfield.cells[ay + ax * compactHeightfield.width].index + getCon(ss, dir);
         curReg = srcReg[ai];
     }
     cont.push(curReg);
 
     let iter = 0;
-    let currentX = x;
     let currentY = y;
+    let currentX = x;
     let currentI = i;
     let currentDir = dir;
 
     while (++iter < 40000) {
         const s = compactHeightfield.spans[currentI];
 
-        if (isSolidEdge(compactHeightfield, srcReg, currentX, currentY, currentI, currentDir)) {
+        if (isSolidEdge(compactHeightfield, srcReg, currentY, currentX, currentI, currentDir)) {
             // choose the edge corner
             let r = 0;
             if (getCon(s, currentDir) !== NOT_CONNECTED) {
-                const ax = currentX + DIR_OFFSETS[currentDir][0];
-                const ay = currentY + DIR_OFFSETS[currentDir][1];
-                const ai = compactHeightfield.cells[ax + ay * compactHeightfield.width].index + getCon(s, currentDir);
+                const ay = currentY + DIR_OFFSETS[currentDir][0];
+                const ax = currentX + DIR_OFFSETS[currentDir][1];
+                const ai = compactHeightfield.cells[ay + ax * compactHeightfield.width].index + getCon(s, currentDir);
                 r = srcReg[ai];
             }
             if (r !== curReg) {
@@ -1046,19 +1046,19 @@ const walkContour = (
             currentDir = (currentDir + 1) & 0x3; // rotate CW
         } else {
             let ni = -1;
-            const nx = currentX + DIR_OFFSETS[currentDir][0];
-            const ny = currentY + DIR_OFFSETS[currentDir][1];
+            const ny = currentY + DIR_OFFSETS[currentDir][0];
+            const nx = currentX + DIR_OFFSETS[currentDir][1];
             if (getCon(s, currentDir) !== NOT_CONNECTED) {
-                const nc = compactHeightfield.cells[nx + ny * compactHeightfield.width];
+                const nc = compactHeightfield.cells[ny + nx * compactHeightfield.width];
                 ni = nc.index + getCon(s, currentDir);
             }
             if (ni === -1) {
                 // Should not happen.
-                BuildContext.warn(ctx, `walkContour: encountered unexpected disconnected neighbour at (${currentX}, ${currentY})`);
+                BuildContext.warn(ctx, `walkContour: encountered unexpected disconnected neighbour at (${currentY}, ${currentX})`);
                 return;
             }
-            currentX = nx;
             currentY = ny;
+            currentX = nx;
             currentI = ni;
             currentDir = (currentDir + 3) & 0x3; // rotate CCW
         }
@@ -1143,7 +1143,7 @@ export const buildRegionsMonotone = (
     const prev: number[] = new Array(256);
 
     // sweep one line at a time
-    for (let y = borderSize; y < h - borderSize; y++) {
+    for (let x = borderSize; x < h - borderSize; x++) {
         // collect spans from this row
         if (prev.length < id + 1) {
             prev.length = id + 1;
@@ -1151,19 +1151,19 @@ export const buildRegionsMonotone = (
         prev.fill(0, 0, id);
         let rid = 1;
 
-        for (let x = borderSize; x < w - borderSize; x++) {
-            const cell = compactHeightfield.cells[x + y * w];
+        for (let y = borderSize; y < w - borderSize; y++) {
+            const cell = compactHeightfield.cells[y + x * w];
 
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 const span = compactHeightfield.spans[i];
                 if (compactHeightfield.areas[i] === NULL_AREA) continue;
 
-                // check -x direction
+                // check -y direction
                 let previd = 0;
                 if (getCon(span, 0) !== NOT_CONNECTED) {
-                    const ax = x + DIR_OFFSETS[0][0];
-                    const ay = y + DIR_OFFSETS[0][1];
-                    const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, 0);
+                    const ay = y + DIR_OFFSETS[0][0];
+                    const ax = x + DIR_OFFSETS[0][1];
+                    const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, 0);
                     if ((srcReg[ai] & BORDER_REG) === 0 && compactHeightfield.areas[i] === compactHeightfield.areas[ai]) {
                         previd = srcReg[ai];
                     }
@@ -1176,11 +1176,11 @@ export const buildRegionsMonotone = (
                     sweeps[previd].nei = 0;
                 }
 
-                // check -y direction
+                // check -x direction
                 if (getCon(span, 3) !== NOT_CONNECTED) {
-                    const ax = x + DIR_OFFSETS[3][0];
-                    const ay = y + DIR_OFFSETS[3][1];
-                    const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, 3);
+                    const ay = y + DIR_OFFSETS[3][0];
+                    const ax = x + DIR_OFFSETS[3][1];
+                    const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, 3);
                     if (
                         srcReg[ai] &&
                         (srcReg[ai] & BORDER_REG) === 0 &&
@@ -1211,8 +1211,8 @@ export const buildRegionsMonotone = (
         }
 
         // remap IDs
-        for (let x = borderSize; x < w - borderSize; x++) {
-            const cell = compactHeightfield.cells[x + y * w];
+        for (let y = borderSize; y < w - borderSize; y++) {
+            const cell = compactHeightfield.cells[y + x * w];
 
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 if (srcReg[i] > 0 && srcReg[i] < rid) {
@@ -1272,8 +1272,8 @@ const mergeAndFilterLayerRegions = (
             visited: false,
             overlap: false,
             connectsToBorder: false,
-            ymin: 0xffff,
-            ymax: 0,
+            zmin: 0xffff,
+            zmax: 0,
             connections: [],
             floors: [],
         });
@@ -1281,9 +1281,9 @@ const mergeAndFilterLayerRegions = (
 
     // find region neighbours and overlapping regions
     const lregs: number[] = [];
-    for (let y = 0; y < h; y++) {
-        for (let x = 0; x < w; x++) {
-            const cell = compactHeightfield.cells[x + y * w];
+    for (let x = 0; x < h; x++) {
+        for (let y = 0; y < w; y++) {
+            const cell = compactHeightfield.cells[y + x * w];
             lregs.length = 0;
 
             for (let i = cell.index; i < cell.index + cell.count; i++) {
@@ -1295,8 +1295,8 @@ const mergeAndFilterLayerRegions = (
 
                 reg.spanCount++;
                 reg.areaType = area;
-                reg.ymin = Math.min(reg.ymin, span.y);
-                reg.ymax = Math.max(reg.ymax, span.y);
+                reg.zmin = Math.min(reg.zmin, span.z);
+                reg.zmax = Math.max(reg.zmax, span.z);
 
                 // collect all region layers
                 lregs.push(ri);
@@ -1304,9 +1304,9 @@ const mergeAndFilterLayerRegions = (
                 // update neighbours
                 for (let dir = 0; dir < 4; dir++) {
                     if (getCon(span, dir) !== NOT_CONNECTED) {
-                        const ax = x + DIR_OFFSETS[dir][0];
-                        const ay = y + DIR_OFFSETS[dir][1];
-                        const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, dir);
+                        const ay = y + DIR_OFFSETS[dir][0];
+                        const ax = x + DIR_OFFSETS[dir][1];
+                        const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, dir);
                         const rai = srcReg[ai];
                         if (rai > 0 && rai < nreg && rai !== ri) {
                             addUniqueConnection(reg, rai);
@@ -1383,8 +1383,8 @@ const mergeAndFilterLayerRegions = (
                 for (let k = 0; k < regn.floors.length; k++) {
                     addUniqueFloorRegion(root, regn.floors[k]);
                 }
-                root.ymin = Math.min(root.ymin, regn.ymin);
-                root.ymax = Math.max(root.ymax, regn.ymax);
+                root.zmin = Math.min(root.zmin, regn.zmin);
+                root.zmax = Math.max(root.zmax, regn.zmax);
                 root.spanCount += regn.spanCount;
                 regn.spanCount = 0;
                 root.connectsToBorder = root.connectsToBorder || regn.connectsToBorder;
@@ -1482,7 +1482,7 @@ export const buildLayerRegions = (
     const prev: number[] = new Array(256);
 
     // sweep one line at a time
-    for (let y = borderSize; y < h - borderSize; y++) {
+    for (let x = borderSize; x < h - borderSize; x++) {
         // collect spans from this row
         if (prev.length < id + 1) {
             prev.length = id + 1;
@@ -1490,19 +1490,19 @@ export const buildLayerRegions = (
         prev.fill(0, 0, id);
         let rid = 1;
 
-        for (let x = borderSize; x < w - borderSize; x++) {
-            const cell = compactHeightfield.cells[x + y * w];
+        for (let y = borderSize; y < w - borderSize; y++) {
+            const cell = compactHeightfield.cells[y + x * w];
 
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 const span = compactHeightfield.spans[i];
                 if (compactHeightfield.areas[i] === NULL_AREA) continue;
 
-                // check -x direction
+                // check -y direction
                 let previd = 0;
                 if (getCon(span, 0) !== NOT_CONNECTED) {
-                    const ax = x + DIR_OFFSETS[0][0];
-                    const ay = y + DIR_OFFSETS[0][1];
-                    const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, 0);
+                    const ay = y + DIR_OFFSETS[0][0];
+                    const ax = x + DIR_OFFSETS[0][1];
+                    const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, 0);
                     if ((srcReg[ai] & BORDER_REG) === 0 && compactHeightfield.areas[i] === compactHeightfield.areas[ai]) {
                         previd = srcReg[ai];
                     }
@@ -1515,11 +1515,11 @@ export const buildLayerRegions = (
                     sweeps[previd].nei = 0;
                 }
 
-                // check -y direction
+                // check -x direction
                 if (getCon(span, 3) !== NOT_CONNECTED) {
-                    const ax = x + DIR_OFFSETS[3][0];
-                    const ay = y + DIR_OFFSETS[3][1];
-                    const ai = compactHeightfield.cells[ax + ay * w].index + getCon(span, 3);
+                    const ay = y + DIR_OFFSETS[3][0];
+                    const ax = x + DIR_OFFSETS[3][1];
+                    const ai = compactHeightfield.cells[ay + ax * w].index + getCon(span, 3);
                     if (
                         srcReg[ai] &&
                         (srcReg[ai] & BORDER_REG) === 0 &&
@@ -1550,8 +1550,8 @@ export const buildLayerRegions = (
         }
 
         // remap IDs
-        for (let x = borderSize; x < w - borderSize; x++) {
-            const cell = compactHeightfield.cells[x + y * w];
+        for (let y = borderSize; y < w - borderSize; y++) {
+            const cell = compactHeightfield.cells[y + x * w];
 
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 if (srcReg[i] > 0 && srcReg[i] < rid) {

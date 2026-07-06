@@ -1,4 +1,4 @@
-import { chunkyTriMesh } from 'navcat/blocks';
+import { chunkyTriMesh } from 'navcat-zup/blocks';
 import { describe, expect, it } from 'vitest';
 
 const createTestGrid = (size: number) => {
@@ -11,10 +11,10 @@ const createTestGrid = (size: number) => {
             const baseIndex = positions.length / 3;
 
             // four corners of a quad
-            positions.push(x, 0, z); // bottom-left
-            positions.push(x + 1, 0, z); // bottom-right
-            positions.push(x + 1, 0, z + 1); // top-right
-            positions.push(x, 0, z + 1); // top-left
+            positions.push(z, x, 0); // bottom-left
+            positions.push(z, x + 1, 0); // bottom-right
+            positions.push(z + 1, x + 1, 0); // top-right
+            positions.push(z + 1, x, 0); // top-left
 
             // first triangle (bottom-left, bottom-right, top-right)
             indices.push(baseIndex, baseIndex + 1, baseIndex + 2);
@@ -54,7 +54,7 @@ describe('ChunkyTriMesh', () => {
         });
 
         it('should handle a single triangle', () => {
-            const positions = [0, 0, 0, 1, 0, 0, 0, 0, 1];
+            const positions = [0, 0, 0, 0, 1, 0, 1, 0, 0];
             const indices = [0, 1, 2];
 
             const testChunkyTriMesh = chunkyTriMesh.create(positions, indices);

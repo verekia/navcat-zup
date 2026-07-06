@@ -241,8 +241,8 @@ const getTileColumnHash = (x: number, y: number): string => {
  * @param worldPosition the world space position
  */
 export const worldToTilePosition = (outTilePosition: Vec2, navMesh: NavMesh, worldPosition: Vec3) => {
-    outTilePosition[0] = Math.floor((worldPosition[0] - navMesh.origin[0]) / navMesh.tileWidth);
-    outTilePosition[1] = Math.floor((worldPosition[2] - navMesh.origin[2]) / navMesh.tileHeight);
+    outTilePosition[0] = Math.floor((worldPosition[1] - navMesh.origin[1]) / navMesh.tileWidth);
+    outTilePosition[1] = Math.floor((worldPosition[0] - navMesh.origin[0]) / navMesh.tileHeight);
     return outTilePosition;
 };
 
@@ -302,7 +302,7 @@ const _getDetailMeshHeight_closest = vec3.create();
 
 /**
  * Gets the height at a position inside a polygon using the detail mesh.
- * Assumes the position is already known to be inside the polygon (in XZ).
+ * Assumes the position is already known to be inside the polygon (in XY).
  * Falls back to closest point on detail edges if triangle checks fail.
  * @param tile The tile containing the polygon
  * @param poly The polygon
@@ -326,15 +326,15 @@ const getDetailMeshHeight = (tile: NavMeshTile, poly: NavMeshPoly, polyIndex: nu
                 if (vertIndex < poly.vertices.length) {
                     // use polygon vertex
                     const polyVertIndex = poly.vertices[vertIndex] * 3;
-                    v[k][0] = tile.vertices[polyVertIndex + 0];
                     v[k][1] = tile.vertices[polyVertIndex + 1];
                     v[k][2] = tile.vertices[polyVertIndex + 2];
+                    v[k][0] = tile.vertices[polyVertIndex];
                 } else {
                     // use detail vertices
                     const detailVertIndex = (detailMesh.verticesBase + (vertIndex - poly.vertices.length)) * 3;
-                    v[k][0] = tile.detailVertices[detailVertIndex + 0];
                     v[k][1] = tile.detailVertices[detailVertIndex + 1];
                     v[k][2] = tile.detailVertices[detailVertIndex + 2];
+                    v[k][0] = tile.detailVertices[detailVertIndex];
                 }
             }
 
@@ -351,7 +351,7 @@ const getDetailMeshHeight = (tile: NavMeshTile, poly: NavMeshPoly, polyIndex: nu
     // closest.
     // this should almost never happen so the extra iteration here is ok.
     getClosestPointOnDetailEdges(_getDetailMeshHeight_closest, tile, poly, polyIndex, pos, false);
-    return _getDetailMeshHeight_closest[1];
+    return _getDetailMeshHeight_closest[2];
 };
 
 const _getPolyHeight_a = vec3.create();
@@ -394,9 +394,9 @@ export const getPolyHeight = (
     const vertices = _getPolyHeight_vertices;
     for (let i = 0; i < nv; ++i) {
         const start = poly.vertices[i] * 3;
-        vertices[i * 3] = tile.vertices[start];
         vertices[i * 3 + 1] = tile.vertices[start + 1];
         vertices[i * 3 + 2] = tile.vertices[start + 2];
+        vertices[i * 3] = tile.vertices[start];
     }
 
     // check if point is inside polygon
@@ -563,7 +563,7 @@ export const getClosestPointOnPoly = (
 
     if (polyHeight.success) {
         vec3.copy(result.position, position);
-        result.position[1] = polyHeight.height;
+        result.position[2] = polyHeight.height;
         result.isOverPoly = true;
         return result;
     }
@@ -580,7 +580,7 @@ const _closestPointOnPolyBoundary_distancePtSegSqr2dResult = createDistancePtSeg
 
 /**
  * Gets the closest point on the boundary of a polygon to a given point.
- * If the point is inside the polygon (in XZ), the Y coordinate is adjusted to the polygon surface.
+ * If the point is inside the polygon (in XY), the Z coordinate is adjusted to the polygon surface.
  * @param out the output closest point
  * @param navMesh the navigation mesh
  * @param nodeRef the polygon node reference
@@ -604,16 +604,16 @@ export const getClosestPointOnPolyBoundary = (out: Vec3, navMesh: NavMesh, nodeR
     const vertices = _closestPointOnPolyBoundary_vertices;
     for (let i = 0; i < verticesCount; ++i) {
         const vIndex = poly.vertices[i] * 3;
-        vertices[i * 3] = tile.vertices[vIndex];
         vertices[i * 3 + 1] = tile.vertices[vIndex + 1];
         vertices[i * 3 + 2] = tile.vertices[vIndex + 2];
+        vertices[i * 3] = tile.vertices[vIndex];
     }
 
-    // if inside polygon (XZ), return the point with Y adjusted to polygon surface
+    // if inside polygon (XY), return the point with Z adjusted to polygon surface
     if (pointInPoly(point, vertices, verticesCount)) {
+        out[1] = point[1];
         out[0] = point[0];
-        out[2] = point[2];
-        out[1] = getDetailMeshHeight(tile, poly, polyIndex, point);
+        out[2] = getDetailMeshHeight(tile, poly, polyIndex, point);
 
         return true;
     }
@@ -625,12 +625,12 @@ export const getClosestPointOnPolyBoundary = (out: Vec3, navMesh: NavMesh, nodeR
         const j = (i + 1) % verticesCount;
         const vaIndex = i * 3;
         const vbIndex = j * 3;
-        lineStart[0] = vertices[vaIndex + 0];
         lineStart[1] = vertices[vaIndex + 1];
         lineStart[2] = vertices[vaIndex + 2];
-        lineEnd[0] = vertices[vbIndex + 0];
+        lineStart[0] = vertices[vaIndex];
         lineEnd[1] = vertices[vbIndex + 1];
         lineEnd[2] = vertices[vbIndex + 2];
+        lineEnd[0] = vertices[vbIndex];
         distancePtSegSqr2d(_closestPointOnPolyBoundary_distancePtSegSqr2dResult, point, lineStart, lineEnd);
         if (_closestPointOnPolyBoundary_distancePtSegSqr2dResult.distSqr < dmin) {
             dmin = _closestPointOnPolyBoundary_distancePtSegSqr2dResult.distSqr;
@@ -641,26 +641,26 @@ export const getClosestPointOnPolyBoundary = (out: Vec3, navMesh: NavMesh, nodeR
     const j = (imin + 1) % verticesCount;
     const vaIndex = imin * 3;
     const vbIndex = j * 3;
-    const va0 = vertices[vaIndex + 0];
     const va1 = vertices[vaIndex + 1];
     const va2 = vertices[vaIndex + 2];
-    const vb0 = vertices[vbIndex + 0];
+    const va0 = vertices[vaIndex];
     const vb1 = vertices[vbIndex + 1];
     const vb2 = vertices[vbIndex + 2];
+    const vb0 = vertices[vbIndex];
 
-    // compute t on segment (xz plane)
+    // compute t on segment (xy plane)
+    const pqy = vb1 - va1;
     const pqx = vb0 - va0;
-    const pqz = vb2 - va2;
+    const dy = point[1] - va1;
     const dx = point[0] - va0;
-    const dz = point[2] - va2;
-    const denom = pqx * pqx + pqz * pqz;
-    let t = denom > 0 ? (pqx * dx + pqz * dz) / denom : 0;
+    const denom = pqy * pqy + pqx * pqx;
+    let t = denom > 0 ? (pqy * dy + pqx * dx) / denom : 0;
     if (t < 0) t = 0;
     else if (t > 1) t = 1;
 
-    out[0] = va0 + (vb0 - va0) * t;
     out[1] = va1 + (vb1 - va1) * t;
     out[2] = va2 + (vb2 - va2) * t;
+    out[0] = va0 + (vb0 - va0) * t;
 
     return true;
 };
@@ -696,12 +696,12 @@ export const findNearestPoly = (
 
     // get bounds for the query
     const bounds = _findNearestPoly_bounds;
-    bounds[0] = center[0] - halfExtents[0];
     bounds[1] = center[1] - halfExtents[1];
     bounds[2] = center[2] - halfExtents[2];
-    bounds[3] = center[0] + halfExtents[0];
+    bounds[0] = center[0] - halfExtents[0];
     bounds[4] = center[1] + halfExtents[1];
     bounds[5] = center[2] + halfExtents[2];
+    bounds[3] = center[0] + halfExtents[0];
 
     // query polygons within the query bounds
     const polys = queryPolygons(navMesh, bounds, queryFilter);
@@ -728,7 +728,7 @@ export const findNearestPoly = (
         // if a point is directly over a polygon and closer than
         // climb height, favor that instead of straight line nearest point.
         if (closestPoint.isOverPoly) {
-            const heightDiff = Math.abs(_findNearestPoly_diff[1]) - tile.walkableClimb;
+            const heightDiff = Math.abs(_findNearestPoly_diff[2]) - tile.walkableClimb;
             distSqr = heightDiff > 0 ? heightDiff * heightDiff : 0;
         } else {
             distSqr = vec3.squaredLength(_findNearestPoly_diff);
@@ -760,24 +760,24 @@ export const queryPolygonsInTile = (
     const qfac = tile.bvTree.quantFactor;
 
     // tile bounds min/max
-    const tbminX = tile.bounds[0], tbminY = tile.bounds[1], tbminZ = tile.bounds[2];
-    const tbmaxX = tile.bounds[3], tbmaxY = tile.bounds[4], tbmaxZ = tile.bounds[5];
+    const tbminY = tile.bounds[1], tbminZ = tile.bounds[2], tbminX = tile.bounds[0];
+    const tbmaxY = tile.bounds[4], tbmaxZ = tile.bounds[5], tbmaxX = tile.bounds[3];
 
     // clamp query box to world box.
-    const minx = Math.max(Math.min(bounds[0], tbmaxX), tbminX) - tbminX;
     const miny = Math.max(Math.min(bounds[1], tbmaxY), tbminY) - tbminY;
     const minz = Math.max(Math.min(bounds[2], tbmaxZ), tbminZ) - tbminZ;
-    const maxx = Math.max(Math.min(bounds[3], tbmaxX), tbminX) - tbminX;
+    const minx = Math.max(Math.min(bounds[0], tbmaxX), tbminX) - tbminX;
     const maxy = Math.max(Math.min(bounds[4], tbmaxY), tbminY) - tbminY;
     const maxz = Math.max(Math.min(bounds[5], tbmaxZ), tbminZ) - tbminZ;
+    const maxx = Math.max(Math.min(bounds[3], tbmaxX), tbminX) - tbminX;
 
     // quantize
-    _queryPolygonsInTile_bmin[0] = Math.floor(qfac * minx) & 0xfffe;
     _queryPolygonsInTile_bmin[1] = Math.floor(qfac * miny) & 0xfffe;
     _queryPolygonsInTile_bmin[2] = Math.floor(qfac * minz) & 0xfffe;
-    _queryPolygonsInTile_bmax[0] = Math.floor(qfac * maxx + 1) | 1;
+    _queryPolygonsInTile_bmin[0] = Math.floor(qfac * minx) & 0xfffe;
     _queryPolygonsInTile_bmax[1] = Math.floor(qfac * maxy + 1) | 1;
     _queryPolygonsInTile_bmax[2] = Math.floor(qfac * maxz + 1) | 1;
+    _queryPolygonsInTile_bmax[0] = Math.floor(qfac * maxx + 1) | 1;
 
     // traverse tree
     while (nodeIndex < endIndex) {
@@ -785,12 +785,12 @@ export const queryPolygonsInTile = (
 
         const nodeBounds = bvNode.bounds;
         const overlap =
-            _queryPolygonsInTile_bmin[0] <= nodeBounds[3] &&
-            _queryPolygonsInTile_bmax[0] >= nodeBounds[0] &&
             _queryPolygonsInTile_bmin[1] <= nodeBounds[4] &&
             _queryPolygonsInTile_bmax[1] >= nodeBounds[1] &&
             _queryPolygonsInTile_bmin[2] <= nodeBounds[5] &&
-            _queryPolygonsInTile_bmax[2] >= nodeBounds[2];
+            _queryPolygonsInTile_bmax[2] >= nodeBounds[2] &&
+            _queryPolygonsInTile_bmin[0] <= nodeBounds[3] &&
+            _queryPolygonsInTile_bmax[0] >= nodeBounds[0];
 
         const isLeafNode = bvNode.i >= 0;
 
@@ -976,56 +976,56 @@ const oppositeTile = (side: number): number => (side + 4) & 0x7;
 
 // Compute a scalar coordinate along the primary axis for the slab
 const getSlabCoord = (v: Vec3, side: number): number => {
-    if (side === 0 || side === 4) return v[0]; // x portals measure by x
-    if (side === 2 || side === 6) return v[2]; // z portals measure by z
+    if (side === 0 || side === 4) return v[1]; // y portals measure by y
+    if (side === 2 || side === 6) return v[0]; // x portals measure by x
     return 0;
 };
 
-// Calculate 2D endpoints (u,y) for edge segment projected onto the portal axis plane.
-// For x-portals (side 0/4) we use u = z, for z-portals (2/6) u = x.
+// Calculate 2D endpoints (u,z) for edge segment projected onto the portal axis plane.
+// For y-portals (side 0/4) we use u = x, for x-portals (2/6) u = y.
 const calcSlabEndPoints = (va: Vec3, vb: Vec3, bmin: Vec3, bmax: Vec3, side: number) => {
     if (side === 0 || side === 4) {
-        if (va[2] < vb[2]) {
-            bmin[0] = va[2];
-            bmin[1] = va[1];
-            bmax[0] = vb[2];
-            bmax[1] = vb[1];
-        } else {
-            bmin[0] = vb[2];
-            bmin[1] = vb[1];
-            bmax[0] = va[2];
-            bmax[1] = va[1];
-        }
-    } else if (side === 2 || side === 6) {
         if (va[0] < vb[0]) {
             bmin[0] = va[0];
-            bmin[1] = va[1];
+            bmin[1] = va[2];
             bmax[0] = vb[0];
-            bmax[1] = vb[1];
+            bmax[1] = vb[2];
         } else {
             bmin[0] = vb[0];
-            bmin[1] = vb[1];
+            bmin[1] = vb[2];
             bmax[0] = va[0];
-            bmax[1] = va[1];
+            bmax[1] = va[2];
+        }
+    } else if (side === 2 || side === 6) {
+        if (va[1] < vb[1]) {
+            bmin[0] = va[1];
+            bmin[1] = va[2];
+            bmax[0] = vb[1];
+            bmax[1] = vb[2];
+        } else {
+            bmin[0] = vb[1];
+            bmin[1] = vb[2];
+            bmax[0] = va[1];
+            bmax[1] = va[2];
         }
     }
 };
 
-// Overlap test of two edge slabs in (u,y) space, with tolerances px (horizontal pad) and py (vertical threshold)
+// Overlap test of two edge slabs in (u,z) space, with tolerances px (horizontal pad) and py (vertical threshold)
 const overlapSlabs = (amin: Vec3, amax: Vec3, bmin: Vec3, bmax: Vec3, px: number, py: number): boolean => {
-    const minx = Math.max(amin[0] + px, bmin[0] + px);
-    const maxx = Math.min(amax[0] - px, bmax[0] - px);
-    if (minx > maxx) return false; // no horizontal overlap
+    const miny = Math.max(amin[0] + px, bmin[0] + px);
+    const maxy = Math.min(amax[0] - px, bmax[0] - px);
+    if (miny > maxy) return false; // no horizontal overlap
 
     // Vertical overlap test via line interpolation along u
     const ad = (amax[1] - amin[1]) / (amax[0] - amin[0]);
     const ak = amin[1] - ad * amin[0];
     const bd = (bmax[1] - bmin[1]) / (bmax[0] - bmin[0]);
     const bk = bmin[1] - bd * bmin[0];
-    const aminy = ad * minx + ak;
-    const amaxy = ad * maxx + ak;
-    const bminy = bd * minx + bk;
-    const bmaxy = bd * maxx + bk;
+    const aminy = ad * miny + ak;
+    const amaxy = ad * maxy + ak;
+    const bminy = bd * miny + bk;
+    const bmaxy = bd * maxy + bk;
     const dmin = bminy - aminy;
     const dmax = bmaxy - amaxy;
     if (dmin * dmax < 0) return true; // crossing
@@ -1056,7 +1056,7 @@ const findConnectingPolys = (
     side: number,
 ): { nodeRef: NodeRef; umin: number; umax: number }[] => {
     if (!target) return [];
-    calcSlabEndPoints(va, vb, _amin, _amax, side); // store u,y
+    calcSlabEndPoints(va, vb, _amin, _amax, side); // store u,z
     const apos = getSlabCoord(va, side);
 
     const results: { nodeRef: NodeRef; umin: number; umax: number }[] = [];
@@ -1142,13 +1142,13 @@ const connectExternalLinks = (navMesh: NavMesh, tile: NavMeshTile, target: NavMe
                 let tmax: number;
 
                 if (dir === 0 || dir === 4) {
-                    // x portals param by z
-                    tmin = (o.umin - va[2]) / (vb[2] - va[2]);
-                    tmax = (o.umax - va[2]) / (vb[2] - va[2]);
-                } else {
-                    // z portals param by x
+                    // y portals param by x
                     tmin = (o.umin - va[0]) / (vb[0] - va[0]);
                     tmax = (o.umax - va[0]) / (vb[0] - va[0]);
+                } else {
+                    // x portals param by y
+                    tmin = (o.umin - va[1]) / (vb[1] - va[1]);
+                    tmax = (o.umax - va[1]) / (vb[1] - va[1]);
                 }
 
                 if (tmin > tmax) {

@@ -1,16 +1,14 @@
 ![./docs/cover.png](./docs/cover.png)
 
-[![Version](https://img.shields.io/npm/v/navcat?style=for-the-badge)](https://www.npmjs.com/package/navcat)
-![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/isaac-mason/navcat/main.yml?style=for-the-badge)
-[![Downloads](https://img.shields.io/npm/dt/navcat.svg?style=for-the-badge)](https://www.npmjs.com/package/navcat)
-
 ```bash
-> npm install navcat
+> npm install navcat-zup
 ```
 
-# navcat
+# navcat-zup
 
-navcat is a javascript navigation mesh construction and querying library for 3D floor-based navigation.
+navcat-zup is a **Z-up** fork of [navcat](https://github.com/isaac-mason/navcat), a javascript navigation mesh construction and querying library for 3D floor-based navigation.
+
+Everything in this fork uses a right-handed, Z-up coordinate system: the ground plane is XY and +Z is up. This matches the conventions of Blender, CAD tools, and many simulation engines. If you want the standard Y-up conventions (matching three.js defaults), use the original [navcat](https://github.com/isaac-mason/navcat) instead.
 
 navcat is ideal for use in games, simulations, and creative websites that require navigation in complex 3D environments.
 
@@ -31,10 +29,10 @@ API documentation can be found at [navcat.dev/docs](https://navcat.dev/docs).
 
 **Installation**
 
-navcat is available on npm:
+navcat-zup is available on npm:
 
 ```bash
-npm install navcat
+npm install navcat-zup
 ```
 
 An example of using navcat without any build tools using unpkg can be found here: https://github.com/isaac-mason/navcat-vanilla-html-js-example
@@ -61,12 +59,12 @@ A navigation mesh (or navmesh) is a simplified representation of a 3D environmen
 
 navcat is agnostic of rendering or game engine library, so it will work well with any javascript engine - Babylon.js, PlayCanvas, Three.js, or your own engine.
 
-If you are using threejs, you may make use of the utilities in the `navcat/three` entrypoint, see the [navcat/three docs](#navcatthree). Integrations for other engines may be added in future.
+If you are using threejs, you may make use of the utilities in the `navcat-zup/three` entrypoint, see the [navcat-zup/three docs](#navcat-zupthree). Integrations for other engines may be added in future.
 
-navcat adheres to the OpenGL conventions:
+navcat-zup uses the following conventions:
 
-- Uses the right-handed coordinate system
-- Indices should be in counter-clockwise winding order
+- Right-handed coordinate system with **+Z up** (the ground plane is XY)
+- Indices should be in counter-clockwise winding order (a floor triangle viewed from above / from +Z should wind counter-clockwise, giving a +Z normal)
 
 If you are importing a navmesh created externally, note that navmesh poly vertices must be indexed / must share vertices between adjacent polygons.
 
@@ -76,11 +74,11 @@ The examples use threejs for rendering, but the core navcat APIs are completely 
 
 ## Quick Start / Minimal Example
 
-Below is a minimal example of using the presets in `navcat/blocks` to generate a navigation mesh, and then using APIs in `navcat` to find a path on the generated navmesh.
+Below is a minimal example of using the presets in `navcat-zup/blocks` to generate a navigation mesh, and then using APIs in `navcat` to find a path on the generated navmesh.
 
 For information on how to tune these options, and how the generation process works under the hood with images, see the [Navigation mesh generation](#navigation-mesh-generation) section below.
 
-If you are using threejs, you can find [a threejs-specific version of this snippet in the navcat/three section](#navcatthree).
+If you are using threejs, you can find [a threejs-specific version of this snippet in the navcat-zup/three section](#navcat-zupthree).
 
 <Snippet source="./snippets/blocks.ts" select="quickstart" />
 
@@ -88,8 +86,8 @@ Below is a quick summary of the navmesh generation parameters used above, and ho
 
 | Parameter                   | Description                                                                                                       | Range / Heuristic for 1 = 1m humanoid agents |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `cellSize`                  | Horizontal voxel size (XZ). Smaller = finer detail, slower generation.                                            | ≈ `walkableRadiusWorld / 3`                  |
-| `cellHeight`                | Vertical voxel size (Y). Controls height resolution.                                                              | ≈ `walkableClimbWorld / 2`                   |
+| `cellSize`                  | Horizontal voxel size (XY). Smaller = finer detail, slower generation.                                            | ≈ `walkableRadiusWorld / 3`                  |
+| `cellHeight`                | Vertical voxel size (Z). Controls height resolution.                                                              | ≈ `walkableClimbWorld / 2`                   |
 | `walkableRadiusWorld`       | Agent radius (half-width). Determines clearance around walls.                                                     | 0.2–0.5 m                                    |
 | `walkableHeightWorld`       | Agent height. Areas with ceilings lower than this are excluded.                                                   | 1.6–2.0 m                                    |
 | `walkableSlopeAngleDegrees` | Max slope angle the agent can walk. This filters out input triangles at the very beginning of navmesh generation. | 35–50°                                       |
@@ -114,7 +112,7 @@ The `findPath` function is a convenience wrapper around `findNearestPoly`, `find
 
 <Snippet source="./snippets/solo-navmesh.ts" select="findPath" />
 
-<RenderType type="import('navcat').findPath" />
+<RenderType type="import('navcat-zup').findPath" />
 
 <ApiDocsLink name="findPath" />
 
@@ -126,7 +124,7 @@ Combines `findNodePath`, `findStraightPath`, and `moveAlongSurface` to produce a
 
 **When to use:** Use this when you want a smooth path that follows the navmesh surface without sharp corners, and you need it infrequently (e.g. for visual previews, not for many agents per frame).
 
-<RenderType type="import('navcat').findSmoothPath" />
+<RenderType type="import('navcat-zup').findSmoothPath" />
 
 <ApiDocsLink name="findSmoothPath" />
 
@@ -140,7 +138,7 @@ Finds a path through the navigation mesh as a sequence of polygon and offmesh co
 
 <Snippet source="./snippets/solo-navmesh.ts" select="findNodePath" />
 
-<RenderType type="import('navcat').findNodePath" />
+<RenderType type="import('navcat-zup').findNodePath" />
 
 <ApiDocsLink name="findNodePath" />
 
@@ -152,7 +150,7 @@ Performs "string pulling" to convert a sequence of nodes into a series of waypoi
 
 <Snippet source="./snippets/solo-navmesh.ts" select="findStraightPath" />
 
-<RenderType type="import('navcat').findStraightPath" />
+<RenderType type="import('navcat-zup').findStraightPath" />
 
 <ApiDocsLink name="findStraightPath" />
 
@@ -166,7 +164,7 @@ This should be called with small movement deltas (e.g., per frame) to move an ag
 
 <Snippet source="./snippets/solo-navmesh.ts" select="moveAlongSurface" />
 
-<RenderType type="import('navcat').moveAlongSurface" />
+<RenderType type="import('navcat-zup').moveAlongSurface" />
 
 <ApiDocsLink name="moveAlongSurface" />
 
@@ -180,11 +178,11 @@ Casts a ray along the navmesh surface to check for walkability and detect obstac
 
 <Snippet source="./snippets/solo-navmesh.ts" select="raycast" />
 
-<RenderType type="import('navcat').raycast" />
+<RenderType type="import('navcat-zup').raycast" />
 
 <Snippet source="./snippets/solo-navmesh.ts" select="raycastWithCosts" />
 
-<RenderType type="import('navcat').raycastWithCosts" />
+<RenderType type="import('navcat-zup').raycastWithCosts" />
 
 <ApiDocsLink name="raycast" />
 
@@ -200,7 +198,7 @@ Finds the nearest polygon on the navmesh to a given world position.
 
 <Snippet source="./snippets/solo-navmesh.ts" select="findNearestPoly" />
 
-<RenderType type="import('navcat').findNearestPoly" />
+<RenderType type="import('navcat-zup').findNearestPoly" />
 
 <ApiDocsLink name="findNearestPoly" />
 
@@ -214,7 +212,7 @@ Finds a random walkable point anywhere on the navmesh.
 
 <Snippet source="./snippets/solo-navmesh.ts" select="findRandomPoint" />
 
-<RenderType type="import('navcat').findRandomPoint" />
+<RenderType type="import('navcat-zup').findRandomPoint" />
 
 <ApiDocsLink name="findRandomPoint" />
 
@@ -228,7 +226,7 @@ Finds a random walkable point within a circular radius around a center position.
 
 <Snippet source="./snippets/solo-navmesh.ts" select="findRandomPointAroundCircle" />
 
-<RenderType type="import('navcat').findRandomPointAroundCircle" />
+<RenderType type="import('navcat-zup').findRandomPointAroundCircle" />
 
 <ApiDocsLink name="findRandomPointAroundCircle" />
 
@@ -236,7 +234,7 @@ Finds a random walkable point within a circular radius around a center position.
 
 ## Crowd Simulation
 
-The `crowd` API in `navcat/blocks` provides a high-level agent simulation system built on top of navcat's pathfinding and local steering capabilities.
+The `crowd` API in `navcat-zup/blocks` provides a high-level agent simulation system built on top of navcat's pathfinding and local steering capabilities.
 
 For simple use cases you can use it directly, and for more advanced use cases you might copy it into your project and modify it as needed.
 
@@ -245,7 +243,7 @@ For simple use cases you can use it directly, and for more advanced use cases yo
 - Agent-to-agent and wall avoidance
 - Off-mesh connection support with animation hooks
 
-It internally makes use of other `navcat/blocks` APIs like `pathCorridor`, `localBoundary`, and `obstacleAvoidance` to manage agent node corridors and handle obstacle avoidance.
+It internally makes use of other `navcat-zup/blocks` APIs like `pathCorridor`, `localBoundary`, and `obstacleAvoidance` to manage agent node corridors and handle obstacle avoidance.
 
 See the docs for API specifics:
 
@@ -301,7 +299,7 @@ If you remove and re-add tiles at given coordinates, note that the node referenc
 
 ### Generation Presets
 
-The `navcat/blocks` entrypoint provides `generateSoloNavMesh` and `generateTiledNavMesh` presets that bundle together the common steps of the navigation mesh generation process into easy-to-use functions.
+The `navcat-zup/blocks` entrypoint provides `generateSoloNavMesh` and `generateTiledNavMesh` presets that bundle together the common steps of the navigation mesh generation process into easy-to-use functions.
 
 If your use case is simple, you can use these presets to get started quickly. As your use case becomes more complex, you can eject from these presets by copying the functions (that are separate from navcat core) into your project and modifying them as needed.
 
@@ -347,7 +345,7 @@ The navigation mesh generation process emits diagnostic messages, warnings, and 
 
 ![2-1-navmesh-gen-input](./docs/2-1-navmesh-gen-input.png)
 
-<RenderType type="import('navcat').BuildContextState" />
+<RenderType type="import('navcat-zup').BuildContextState" />
 
 #### 1. Mark walkable triangles
 
@@ -357,9 +355,9 @@ The first step is to filter the input triangles to find the walkable triangles. 
 
 ![2-2-walkable-triangles](./docs/2-2-navmesh-gen-walkable-triangles.png)
 
-<RenderType type="import('navcat').markWalkableTriangles" />
+<RenderType type="import('navcat-zup').markWalkableTriangles" />
 
-<RenderType type="import('navcat').createTriangleAreaIdsHelper" />
+<RenderType type="import('navcat-zup').createTriangleAreaIdsHelper" />
 
 #### 2. Rasterize triangles into a heightfield, do filtering with the heightfield
 
@@ -373,25 +371,25 @@ The heightfield resolution is configurable, and greatly affects the fidelity of 
 
 ![2-3-heightfield](./docs/2-3-navmesh-gen-heightfield.png)
 
-<RenderSource type="import('navcat').Heightfield" />
+<RenderSource type="import('navcat-zup').Heightfield" />
 
-<RenderSource type="import('navcat').HeightfieldSpan" />
+<RenderSource type="import('navcat-zup').HeightfieldSpan" />
 
-<RenderType type="import('navcat').calculateMeshBounds" />
+<RenderType type="import('navcat-zup').calculateMeshBounds" />
 
-<RenderType type="import('navcat').calculateGridSize" />
+<RenderType type="import('navcat-zup').calculateGridSize" />
 
-<RenderType type="import('navcat').createHeightfield" />
+<RenderType type="import('navcat-zup').createHeightfield" />
 
-<RenderType type="import('navcat').rasterizeTriangles" />
+<RenderType type="import('navcat-zup').rasterizeTriangles" />
 
-<RenderType type="import('navcat').filterLowHangingWalkableObstacles" />
+<RenderType type="import('navcat-zup').filterLowHangingWalkableObstacles" />
 
-<RenderType type="import('navcat').filterLedgeSpans" />
+<RenderType type="import('navcat-zup').filterLedgeSpans" />
 
-<RenderType type="import('navcat').filterWalkableLowHeightSpans" />
+<RenderType type="import('navcat-zup').filterWalkableLowHeightSpans" />
 
-<RenderType type="import('navcat').createHeightfieldHelper" />
+<RenderType type="import('navcat-zup').createHeightfieldHelper" />
 
 #### 3. Build compact heightfield, erode walkable area, mark areas
 
@@ -403,19 +401,19 @@ The compact heightfield is generally eroded by the agent radius to ensure that t
 
 ![2-4-compact-heightfield](./docs/2-4-navmesh-gen-compact-heightfield.png)
 
-<RenderSource type="import('navcat').CompactHeightfield" />
+<RenderSource type="import('navcat-zup').CompactHeightfield" />
 
-<RenderSource type="import('navcat').CompactHeightfieldCell" />
+<RenderSource type="import('navcat-zup').CompactHeightfieldCell" />
 
-<RenderSource type="import('navcat').CompactHeightfieldSpan" />
+<RenderSource type="import('navcat-zup').CompactHeightfieldSpan" />
 
-<RenderType type="import('navcat').buildCompactHeightfield" />
+<RenderType type="import('navcat-zup').buildCompactHeightfield" />
 
-<RenderType type="import('navcat').erodeWalkableArea" />
+<RenderType type="import('navcat-zup').erodeWalkableArea" />
 
-<RenderType type="import('navcat').erodeAndMarkWalkableAreas" />
+<RenderType type="import('navcat-zup').erodeAndMarkWalkableAreas" />
 
-<RenderType type="import('navcat').createCompactHeightfieldSolidHelper" />
+<RenderType type="import('navcat-zup').createCompactHeightfieldSolidHelper" />
 
 #### 4. Build compact heightfield regions
 
@@ -429,17 +427,17 @@ Some of the region generation algorithms compute a distance field to identify re
 
 ![2-6-regions](./docs/2-6-navmesh-gen-compact-heightfield-regions.png)
 
-<RenderType type="import('navcat').buildDistanceField" />
+<RenderType type="import('navcat-zup').buildDistanceField" />
 
-<RenderType type="import('navcat').buildRegions" />
+<RenderType type="import('navcat-zup').buildRegions" />
 
-<RenderType type="import('navcat').buildRegionsMonotone" />
+<RenderType type="import('navcat-zup').buildRegionsMonotone" />
 
-<RenderType type="import('navcat').buildLayerRegions" />
+<RenderType type="import('navcat-zup').buildLayerRegions" />
 
-<RenderType type="import('navcat').createCompactHeightfieldDistancesHelper" />
+<RenderType type="import('navcat-zup').createCompactHeightfieldDistancesHelper" />
 
-<RenderType type="import('navcat').createCompactHeightfieldRegionsHelper" />
+<RenderType type="import('navcat-zup').createCompactHeightfieldRegionsHelper" />
 
 #### 5. Build contours from compact heightfield regions
 
@@ -451,15 +449,15 @@ Contours are generated around the edges of the regions. These contours are simpl
 
 ![2-8-simplified-contours](./docs/2-8-navmesh-gen-simplified-contours.png)
 
-<RenderSource type="import('navcat').ContourSet" />
+<RenderSource type="import('navcat-zup').ContourSet" />
 
-<RenderSource type="import('navcat').Contour" />
+<RenderSource type="import('navcat-zup').Contour" />
 
-<RenderType type="import('navcat').buildContours" />
+<RenderType type="import('navcat-zup').buildContours" />
 
-<RenderType type="import('navcat').createRawContoursHelper" />
+<RenderType type="import('navcat-zup').createRawContoursHelper" />
 
-<RenderType type="import('navcat').createSimplifiedContoursHelper" />
+<RenderType type="import('navcat-zup').createSimplifiedContoursHelper" />
 
 #### 6. Build polygon mesh from contours, build detail mesh
 
@@ -473,15 +471,15 @@ A "detail triangle mesh" is also generated to capture more accurate height infor
 
 ![2-10-detail-mesh](./docs/2-10-navmesh-gen-detail-mesh.png)
 
-<RenderSource type="import('navcat').PolyMesh" />
+<RenderSource type="import('navcat-zup').PolyMesh" />
 
-<RenderSource type="import('navcat').PolyMeshDetail" />
+<RenderSource type="import('navcat-zup').PolyMeshDetail" />
 
-<RenderType type="import('navcat').buildPolyMesh" />
+<RenderType type="import('navcat-zup').buildPolyMesh" />
 
-<RenderType type="import('navcat').buildPolyMeshDetail" />
+<RenderType type="import('navcat-zup').buildPolyMeshDetail" />
 
-<RenderType type="import('navcat').createPolyMeshHelper" />
+<RenderType type="import('navcat-zup').createPolyMeshHelper" />
 
 #### 7. Convert build-time poly mesh and poly mesh detail to runtime navmesh tile format
 
@@ -491,15 +489,15 @@ This step involes computing adjacency information for the polygons, and mapping 
 
 <Snippet source="./snippets/solo-navmesh.ts" select="convert" />
 
-<RenderType type="import('navcat').polyMeshToTilePolys" />
+<RenderType type="import('navcat-zup').polyMeshToTilePolys" />
 
-<RenderSource type="import('navcat').NavMeshPoly" />
+<RenderSource type="import('navcat-zup').NavMeshPoly" />
 
-<RenderType type="import('navcat').polyMeshDetailToTileDetailMesh" />
+<RenderType type="import('navcat-zup').polyMeshDetailToTileDetailMesh" />
 
-<RenderSource type="import('navcat').NavMeshPolyDetail" />
+<RenderSource type="import('navcat-zup').NavMeshPolyDetail" />
 
-<RenderType type="import('navcat').createPolyMeshDetailHelper" />
+<RenderType type="import('navcat-zup').createPolyMeshDetailHelper" />
 
 #### 8. Assemble the navigation mesh
 
@@ -509,25 +507,25 @@ Finally, the polygon mesh and detail mesh are combined to create a navigation me
 
 ![./docs/1-whats-a-navmesh](./docs/1-whats-a-navmesh.png)
 
-<RenderType type="import('navcat').createNavMesh" />
+<RenderType type="import('navcat-zup').createNavMesh" />
 
-<RenderType type="import('navcat').buildTile" />
+<RenderType type="import('navcat-zup').buildTile" />
 
-<RenderType type="import('navcat').addTile" />
+<RenderType type="import('navcat-zup').addTile" />
 
-<RenderType type="import('navcat').removeTile" />
+<RenderType type="import('navcat-zup').removeTile" />
 
-<RenderType type="import('navcat').createNavMeshHelper" />
+<RenderType type="import('navcat-zup').createNavMeshHelper" />
 
 ### Post-Processing
 
 A common post-processing step after generating a navigation mesh is to flood-fill the navmesh from given "seed points" that represent valid starting locations, to exclude any isolated or unreachable areas. This is useful when generating navmeshes for complex environments where some inside of walls or on top of ceilings may be marked as walkable by the generation process, but are not actually reachable by agents for your use case.
 
-The `navcat/blocks` entrypoint provides a `floodFillNavMesh` utility that helps with this process.
+The `navcat-zup/blocks` entrypoint provides a `floodFillNavMesh` utility that helps with this process.
 
 You can see the "Flood Fill Pruning" example to see how to use this utility:
 
-<RenderType type="import('navcat/blocks').floodFillNavMesh" />
+<RenderType type="import('navcat-zup/blocks').floodFillNavMesh" />
 
 <ExamplesTable ids="example-flood-fill-pruning" />
 
@@ -537,9 +535,9 @@ Most navigation mesh querying APIs accept a `queryFilter` parameter that allows 
 
 You can provide a cost calculation function to modify the cost of traversing polygons, and you can provide a filter function to include/exclude polygons based on their area and flags.
 
-<RenderSource type="import('navcat').QueryFilter" />
+<RenderSource type="import('navcat-zup').QueryFilter" />
 
-<RenderSource type="import('navcat').DEFAULT_QUERY_FILTER" />
+<RenderSource type="import('navcat-zup').DEFAULT_QUERY_FILTER" />
 
 Many simple use cases can get far with using the default query `Nav.DEFAULT_QUERY_FILTER`. If you want to customise cost calculations, or include/exclude areas based on areas and flags, you can provide your own query filter that implements the `QueryFilter` type interface.
 
@@ -559,11 +557,11 @@ To see a live example, see the "Off-Mesh Connections Example":
 
 <ExamplesTable ids="example-off-mesh-connections" />
 
-<RenderType type="import('navcat').addOffMeshConnection" />
+<RenderType type="import('navcat-zup').addOffMeshConnection" />
 
-<RenderType type="import('navcat').removeOffMeshConnection" />
+<RenderType type="import('navcat-zup').removeOffMeshConnection" />
 
-<RenderType type="import('navcat').isOffMeshConnectionConnected" />
+<RenderType type="import('navcat-zup').isOffMeshConnectionConnected" />
 
 ## Advanced Navigation Mesh APIs
 
@@ -573,55 +571,55 @@ This section covers lower-level APIs for working with the navigation mesh struct
 
 <Snippet source="./snippets/solo-navmesh.ts" select="isValidNodeRef" />
 
-<RenderType type="import('navcat').isValidNodeRef" />
+<RenderType type="import('navcat-zup').isValidNodeRef" />
 
 ### `getNodeByRef`
 
 <Snippet source="./snippets/solo-navmesh.ts" select="getNodeByRef" />
 
-<RenderType type="import('navcat').getNodeByRef" />
+<RenderType type="import('navcat-zup').getNodeByRef" />
 
 ### `getNodeByTileAndPoly`
 
 <Snippet source="./snippets/solo-navmesh.ts" select="getNodeByTileAndPoly" />
 
-<RenderType type="import('navcat').getNodeByTileAndPoly" />
+<RenderType type="import('navcat-zup').getNodeByTileAndPoly" />
 
 ### `getPolyHeight`
 
 <Snippet source="./snippets/solo-navmesh.ts" select="getPolyHeight" />
 
-<RenderType type="import('navcat').getPolyHeight" />
+<RenderType type="import('navcat-zup').getPolyHeight" />
 
 ### `getClosestPointOnPoly`
 
 <Snippet source="./snippets/solo-navmesh.ts" select="getClosestPointOnPoly" />
 
-<RenderType type="import('navcat').getClosestPointOnPoly" />
+<RenderType type="import('navcat-zup').getClosestPointOnPoly" />
 
 ### `getClosestPointOnDetailEdges`
 
 <Snippet source="./snippets/solo-navmesh.ts" select="getClosestPointOnDetailEdges" />
 
-<RenderType type="import('navcat').getClosestPointOnDetailEdges" />
+<RenderType type="import('navcat-zup').getClosestPointOnDetailEdges" />
 
 ### `getPortalPoints`
 
 <Snippet source="./snippets/solo-navmesh.ts" select="getPortalPoints" />
 
-<RenderType type="import('navcat').getPortalPoints" />
+<RenderType type="import('navcat-zup').getPortalPoints" />
 
 ### `queryPolygons`
 
 <Snippet source="./snippets/solo-navmesh.ts" select="queryPolygons" />
 
-<RenderType type="import('navcat').queryPolygons" />
+<RenderType type="import('navcat-zup').queryPolygons" />
 
 ### `queryPolygonsInTile`
 
 <Snippet source="./snippets/solo-navmesh.ts" select="queryPolygonsInTile" />
 
-<RenderType type="import('navcat').queryPolygonsInTile" />
+<RenderType type="import('navcat-zup').queryPolygonsInTile" />
 
 ## Using Externally Created Navigation Meshes
 
@@ -643,25 +641,25 @@ Because the navigation mesh is a normal JSON-serializable object, you can easily
 
 navcat provides graphics-library agnostic debug drawing functions to help visualize the navmesh and related data structures.
 
-If you are using threejs, you can use the `navcat/three` entrypoint's debug helpers to create threejs objects for visualization, see the [navcat/three section](#navcatthree) below.
+If you are using threejs, you can use the `navcat-zup/three` entrypoint's debug helpers to create threejs objects for visualization, see the [navcat-zup/three section](#navcat-zupthree) below.
 
 If you are using a different library, you write your own functions to visualize the debug primitives below.
 
 <Snippet source="./snippets/solo-navmesh.ts" select="debug" />
 
-<RenderSource type="import('navcat').DebugPrimitive" />
+<RenderSource type="import('navcat-zup').DebugPrimitive" />
 
-<RenderSource type="import('navcat').DebugTriangles" />
+<RenderSource type="import('navcat-zup').DebugTriangles" />
 
-<RenderSource type="import('navcat').DebugLines" />
+<RenderSource type="import('navcat-zup').DebugLines" />
 
-<RenderSource type="import('navcat').DebugPoints" />
+<RenderSource type="import('navcat-zup').DebugPoints" />
 
-<RenderSource type="import('navcat').DebugBoxes" />
+<RenderSource type="import('navcat-zup').DebugBoxes" />
 
-## `navcat/three`
+## `navcat-zup/three`
 
-The `navcat/three` entrypoint provides some utilities to help integrate navcat with threejs.
+The `navcat-zup/three` entrypoint provides some utilities to help integrate navcat with threejs.
 
 Below is a snippet demonstrating how to use `getPositionsAndIndices` to extract geometry from a threejs mesh for navmesh generation, and how to use `createNavMeshHelper` to visualize the generated navmesh in threejs.
 

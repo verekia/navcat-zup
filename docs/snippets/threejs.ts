@@ -1,15 +1,18 @@
 /* SNIPPET_START: quickstart */
-import { DEFAULT_QUERY_FILTER, findPath, type Vec3 } from 'navcat';
-import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, createSearchNodesHelper, getPositionsAndIndices } from 'navcat/three';
+import { DEFAULT_QUERY_FILTER, findPath, type Vec3 } from 'navcat-zup';
+import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, createSearchNodesHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 
+// use z-up in threejs to match navcat-zup's coordinate system
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
 // create a simple threejs scene
+// PlaneGeometry lies in the XY plane with a +Z normal by default, which is exactly the z-up ground plane
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshStandardMaterial({ color: 0x808080 }));
-floor.rotation.x = -Math.PI / 2;
 
 const box = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x8080ff }));
-box.position.set(0, 0.5, 0);
+box.position.set(0, 0, 0.5);
 
 const scene = new THREE.Scene();
 scene.add(floor);
@@ -83,8 +86,8 @@ const navMeshHelper = createNavMeshHelper(navMesh);
 scene.add(navMeshHelper.object);
 
 // find a path
-const start: Vec3 = [-4, 0, -4];
-const end: Vec3 = [4, 0, 4];
+const start: Vec3 = [-4, -4, 0];
+const end: Vec3 = [4, 4, 0];
 const halfExtents: Vec3 = [0.5, 0.5, 0.5];
 
 const path = findPath(navMesh, start, end, halfExtents, DEFAULT_QUERY_FILTER);

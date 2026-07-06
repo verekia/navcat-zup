@@ -16,7 +16,7 @@ import {
 describe('compact-heightfield', () => {
     describe('setCon and getCon', () => {
         test('sets and gets connection data for a single direction', () => {
-            const span = { y: 0, region: 0, con: 0, h: 0 };
+            const span = { z: 0, region: 0, con: 0, h: 0 };
 
             setCon(span, 0, 5);
 
@@ -27,7 +27,7 @@ describe('compact-heightfield', () => {
         });
 
         test('sets and gets connection data for all four directions', () => {
-            const span = { y: 0, region: 0, con: 0, h: 0 };
+            const span = { z: 0, region: 0, con: 0, h: 0 };
 
             setCon(span, 0, 1);
             setCon(span, 1, 2);
@@ -41,7 +41,7 @@ describe('compact-heightfield', () => {
         });
 
         test('handles maximum layer index (0x3f)', () => {
-            const span = { y: 0, region: 0, con: 0, h: 0 };
+            const span = { z: 0, region: 0, con: 0, h: 0 };
             const maxLayer = 0x3f; // 63
 
             setCon(span, 0, maxLayer);
@@ -50,7 +50,7 @@ describe('compact-heightfield', () => {
         });
 
         test('preserves other direction data when setting one direction', () => {
-            const span = { y: 0, region: 0, con: 0, h: 0 };
+            const span = { z: 0, region: 0, con: 0, h: 0 };
 
             setCon(span, 0, 5);
             setCon(span, 1, 10);
@@ -118,7 +118,7 @@ describe('compact-heightfield', () => {
             const compact = buildCompactHeightfield(ctx, walkableHeightVoxels, 2, heightfield);
 
             // Upper bound should be adjusted by walkableHeight * cellHeight
-            expect(compact.bounds[4]).toBe(3 + walkableHeightVoxels * 0.5);
+            expect(compact.bounds[5]).toBe(3 + walkableHeightVoxels * 0.5);
         });
 
         test('converts heightfield spans to compact spans correctly', () => {
@@ -138,7 +138,7 @@ describe('compact-heightfield', () => {
             expect(cell.count).toBe(1);
 
             const span = compact.spans[cell.index];
-            expect(span.y).toBe(15); // bot = span.max
+            expect(span.z).toBe(15); // bot = span.max
             expect(span.h).toBeGreaterThan(0); // top - bot
             expect(compact.areas[cell.index]).toBe(1);
         });
@@ -250,8 +250,8 @@ describe('compact-heightfield', () => {
             // Check both spans exist
             const span1 = compact.spans[cell.index];
             const span2 = compact.spans[cell.index + 1];
-            expect(span1.y).toBe(10);
-            expect(span2.y).toBe(30);
+            expect(span1.z).toBe(10);
+            expect(span2.z).toBe(30);
         });
 
         test('handles edge cells with missing neighbors', () => {
@@ -281,7 +281,7 @@ describe('compact-heightfield', () => {
         const heightfield = createHeightfield(
             size,
             size,
-            [0, 0, 0, size, 10, size],
+            [0, 0, 0, size, size, 10],
             1.0,
             1.0,
         );
@@ -301,7 +301,7 @@ describe('compact-heightfield', () => {
     describe('markBoxArea', () => {
         test('marks spans within axis-aligned box bounds', () => {
             const compact = createGridWithSpans(5);
-            const bounds: [number, number, number, number, number, number] = [1, 0, 1, 3, 10, 3];
+            const bounds: [number, number, number, number, number, number] = [1, 1, 0, 3, 3, 10];
 
             markBoxArea(bounds, 2, compact);
 
@@ -320,7 +320,7 @@ describe('compact-heightfield', () => {
             const heightfield = createHeightfield(
                 3,
                 3,
-                [0, 0, 0, 3, 10, 3],
+                [0, 0, 0, 3, 3, 10],
                 1.0,
                 1.0,
             );
@@ -330,7 +330,7 @@ describe('compact-heightfield', () => {
             const compact = buildCompactHeightfield(BuildContext.create(), 5, 3, heightfield);
 
             markBoxArea(
-                [0, 0, 0, 3, 7, 3],
+                [0, 0, 0, 3, 3, 7],
                 3,
                 compact,
             );
@@ -347,7 +347,7 @@ describe('compact-heightfield', () => {
             const compact = createGridWithSpans(7);
 
             // Triangle in center
-            const verts = [2.0, 0, 2.0, 5.0, 0, 3.5, 3.5, 0, 5.0];
+            const verts = [2.0, 2.0, 0, 3.5, 5.0, 0, 5.0, 3.5, 0];
 
             markConvexPolyArea(verts, 0, 10, 4, compact);
 
@@ -363,7 +363,7 @@ describe('compact-heightfield', () => {
             const heightfield = createHeightfield(
                 5,
                 5,
-                [0, 0, 0, 5, 10, 5],
+                [0, 0, 0, 5, 5, 10],
                 1.0,
                 1.0,
             );
@@ -371,7 +371,7 @@ describe('compact-heightfield', () => {
             addHeightfieldSpan(heightfield, 2, 2, 15, 20, 2, 1);
             const compact = buildCompactHeightfield(BuildContext.create(), 5, 3, heightfield);
 
-            const verts = [1.0, 0, 1.0, 4.0, 0, 1.0, 4.0, 0, 4.0, 1.0, 0, 4.0];
+            const verts = [1.0, 1.0, 0, 1.0, 4.0, 0, 4.0, 4.0, 0, 4.0, 1.0, 0];
             markConvexPolyArea(verts, 0, 7, 5, compact);
 
             const cell = compact.cells[2 + 2 * 5];
@@ -384,7 +384,7 @@ describe('compact-heightfield', () => {
         test('marks spans within cylinder radius', () => {
             const compact = createGridWithSpans(7);
 
-            markCylinderArea([3.5, 0, 3.5], 1.5, 10, 6, compact);
+            markCylinderArea([3.5, 3.5, 0], 1.5, 10, 6, compact);
 
             const markedCount = countMarked(compact, 6);
             expect(markedCount).toBeGreaterThan(0);
@@ -401,7 +401,7 @@ describe('compact-heightfield', () => {
             const heightfield = createHeightfield(
                 5,
                 5,
-                [0, 0, 0, 5, 10, 5],
+                [0, 0, 0, 5, 5, 10],
                 1.0,
                 1.0,
             );
@@ -409,7 +409,7 @@ describe('compact-heightfield', () => {
             addHeightfieldSpan(heightfield, 2, 2, 15, 20, 2, 1);
             const compact = buildCompactHeightfield(BuildContext.create(), 5, 3, heightfield);
 
-            markCylinderArea([2.5, 0, 2.5], 1.0, 7, 7, compact);
+            markCylinderArea([2.5, 2.5, 0], 1.0, 7, 7, compact);
 
             const cell = compact.cells[2 + 2 * 5];
             expect(compact.areas[cell.index]).toBe(7); // Low span marked
@@ -446,7 +446,7 @@ describe('compact-heightfield', () => {
             // Box extends from X:[2.0-5.0], Z:[2.0-5.0]
             // Cell centers at: X:[2.5, 3.5, 4.5], Z:[2.5, 3.5, 4.5]
             // These 9 cell centers are all within the box bounds
-            markRotatedBoxArea([3.5, 5, 3.5], [1.5, 5, 1.5], 0, 2, compact);
+            markRotatedBoxArea([3.5, 3.5, 5], [1.5, 1.5, 5], 0, 2, compact);
 
             const marked = getMarkedPositions(compact, 2, 7);
 
@@ -470,7 +470,7 @@ describe('compact-heightfield', () => {
             // Box centered at (4.5, 5, 4.5), halfExtents [1.0, 5, 1.0], rotated 45 degrees
             // A 1x1 square rotated 45° forms a diamond pattern
             // The center cell and 4 adjacent cells in cardinal directions should be marked
-            markRotatedBoxArea([4.5, 5, 4.5], [1.0, 5, 1.0], Math.PI / 4, 3, compact);
+            markRotatedBoxArea([4.5, 4.5, 5], [1.0, 1.0, 5], Math.PI / 4, 3, compact);
 
             const marked = getMarkedPositions(compact, 3, 9);
 
@@ -489,7 +489,7 @@ describe('compact-heightfield', () => {
 
             // Box centered at (4.5, 5, 4.5) with halfExtents [2.0, 5, 1.0]
             // At 0°: would be wide (5x3 cells), at 90°: becomes tall
-            markRotatedBoxArea([4.5, 5, 4.5], [2.0, 5, 1.0], Math.PI / 2, 4, compact);
+            markRotatedBoxArea([4.5, 4.5, 5], [1.0, 2.0, 5], Math.PI / 2, 4, compact);
 
             const marked = getMarkedPositions(compact, 4, 9);
 
@@ -508,7 +508,7 @@ describe('compact-heightfield', () => {
         test('marks spans within rotated box at 180 degrees (same as 0)', () => {
             const compact = createGridWithSpans(7);
 
-            markRotatedBoxArea([3.5, 5, 3.5], [1.5, 5, 1.5], Math.PI, 5, compact);
+            markRotatedBoxArea([3.5, 3.5, 5], [1.5, 1.5, 5], Math.PI, 5, compact);
 
             const marked = getMarkedPositions(compact, 5, 7);
 
@@ -530,7 +530,7 @@ describe('compact-heightfield', () => {
             const compact = createGridWithSpans(11);
 
             // Rectangular box (wider in X) rotated 30 degrees
-            markRotatedBoxArea([5.5, 5, 5.5], [2.5, 5, 1.0], Math.PI / 6, 6, compact);
+            markRotatedBoxArea([5.5, 5.5, 5], [1.0, 2.5, 5], Math.PI / 6, 6, compact);
 
             const marked = getMarkedPositions(compact, 6, 11);
 
@@ -552,7 +552,7 @@ describe('compact-heightfield', () => {
             const compact = createGridWithSpans(11);
 
             // Rectangular box rotated -45 degrees (clockwise)
-            markRotatedBoxArea([5.5, 5, 5.5], [2.0, 5, 1.0], -Math.PI / 4, 7, compact);
+            markRotatedBoxArea([5.5, 5.5, 5], [1.0, 2.0, 5], -Math.PI / 4, 7, compact);
 
             const marked = getMarkedPositions(compact, 7, 11);
 
@@ -574,7 +574,7 @@ describe('compact-heightfield', () => {
             const heightfield = createHeightfield(
                 5,
                 5,
-                [0, 0, 0, 5, 10, 5],
+                [0, 0, 0, 5, 5, 10],
                 1.0,
                 1.0,
             );
@@ -585,7 +585,7 @@ describe('compact-heightfield', () => {
 
             // Box with Y range [0-7] (center=3.5, halfExtent=3.5)
             // Should only mark spans with y in [0-7], which includes low span (y=5) but not high (y=20)
-            markRotatedBoxArea([2.5, 3.5, 2.5], [1.0, 3.5, 1.0], Math.PI / 4, 8, compact);
+            markRotatedBoxArea([2.5, 2.5, 3.5], [1.0, 1.0, 3.5], Math.PI / 4, 8, compact);
 
             const cell22 = compact.cells[2 + 2 * 5];
 
@@ -605,7 +605,7 @@ describe('compact-heightfield', () => {
             const compact = createGridWithSpans(5);
 
             // Box centered near corner, partially outside
-            markRotatedBoxArea([1.0, 5, 1.0], [2.0, 5, 2.0], Math.PI / 4, 9, compact);
+            markRotatedBoxArea([1.0, 1.0, 5], [2.0, 2.0, 5], Math.PI / 4, 9, compact);
 
             const marked = getMarkedPositions(compact, 9, 5);
 
@@ -626,7 +626,7 @@ describe('compact-heightfield', () => {
             const compact = createGridWithSpans(5);
 
             // Box way outside the grid
-            markRotatedBoxArea([50.0, 5, 50.0], [1.0, 5, 1.0], 0, 10, compact);
+            markRotatedBoxArea([50.0, 50.0, 5], [1.0, 1.0, 5], 0, 10, compact);
 
             const marked = countMarked(compact, 10);
 
@@ -643,7 +643,7 @@ describe('compact-heightfield', () => {
                 const compact = createGridWithSpans(9);
                 const angle = (i * Math.PI) / 4; // 0, 45, 90, 135, 180, 225, 270, 315 degrees
 
-                markRotatedBoxArea([4.5, 5, 4.5], [1.0, 5, 1.0], angle, 2, compact);
+                markRotatedBoxArea([4.5, 4.5, 5], [1.0, 1.0, 5], angle, 2, compact);
 
                 results.push({
                     angle: (angle * 180) / Math.PI,
@@ -676,7 +676,7 @@ describe('compact-heightfield', () => {
             for (const angle of [0, Math.PI / 2]) {
                 const compact = createGridWithSpans(11);
 
-                markRotatedBoxArea([5.5, 5, 5.5], [2.5, 5, 0.5], angle, 2, compact);
+                markRotatedBoxArea([5.5, 5.5, 5], [0.5, 2.5, 5], angle, 2, compact);
 
                 const marked = getMarkedPositions(compact, 2, 11);
                 const xs = marked.map((p) => p.x);

@@ -363,10 +363,10 @@ const getSteerTarget = (
 };
 
 const inRange = (a: Vec3, b: Vec3, r: number, h: number): boolean => {
-    const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     const dz = b[2] - a[2];
-    return dx * dx + dz * dz < r * r && Math.abs(dy) < h;
+    const dx = b[0] - a[0];
+    return dy * dy + dx * dx < r * r && Math.abs(dz) < h;
 };
 
 const mergeCorridorStartMoved = (currentPath: NodeRef[], visited: NodeRef[], maxPath: number): NodeRef[] => {

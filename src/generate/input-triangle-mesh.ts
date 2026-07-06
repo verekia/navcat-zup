@@ -60,7 +60,7 @@ export const markWalkableTriangles = (
 
         calcTriNormal(v0, v1, v2, _triangleNormal);
 
-        if (_triangleNormal[1] > walkableThr) {
+        if (_triangleNormal[2] > walkableThr) {
             outTriAreaIds[i] = WALKABLE_AREA;
         }
     }
@@ -94,7 +94,7 @@ export const clearUnwalkableTriangles = (
 
         calcTriNormal(v0, v1, v2, _triangleNormal);
 
-        if (_triangleNormal[1] <= walkableThr) {
+        if (_triangleNormal[2] <= walkableThr) {
             inOutTriAreaIds[i] = NULL_AREA;
         }
     }

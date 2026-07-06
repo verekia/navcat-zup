@@ -19,7 +19,7 @@ import {
     type StraightPathPoint,
     StraightPathPointFlags,
     updateSlicedFindNodePath,
-} from 'navcat';
+} from 'navcat-zup';
 import * as localBoundary from './local-boundary';
 import * as obstacleAvoidance from './obstacle-avoidance';
 import * as pathCorridor from './path-corridor';
@@ -788,10 +788,10 @@ const updateNeighbours = (crowd: Crowd): void => {
     // uniform grid spatial partitioning, rebuilt each frame
 
     // find bounds and determine max query range
-    let minX = Infinity,
-        minZ = Infinity;
-    let maxX = -Infinity,
-        maxZ = -Infinity;
+    let minY = Infinity,
+        minX = Infinity;
+    let maxY = -Infinity,
+        maxX = -Infinity;
     let maxQueryRange = 0;
 
     const agentIds: string[] = [];
@@ -804,13 +804,13 @@ const updateNeighbours = (crowd: Crowd): void => {
 
         agentIds.push(agentId);
 
+        const y = agent.position[1];
         const x = agent.position[0];
-        const z = agent.position[2];
 
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
         minX = Math.min(minX, x);
         maxX = Math.max(maxX, x);
-        minZ = Math.min(minZ, z);
-        maxZ = Math.max(maxZ, z);
 
         maxQueryRange = Math.max(maxQueryRange, agent.collisionQueryRange);
     }
@@ -821,8 +821,8 @@ const updateNeighbours = (crowd: Crowd): void => {
     const cellSize = maxQueryRange;
     if (cellSize < 0.01) return; // safety check
 
-    const gridWidth = Math.ceil((maxX - minX) / cellSize) + 1;
-    const gridHeight = Math.ceil((maxZ - minZ) / cellSize) + 1;
+    const gridWidth = Math.ceil((maxY - minY) / cellSize) + 1;
+    const gridHeight = Math.ceil((maxX - minX) / cellSize) + 1;
 
     // build grid - flat array with direct indexing (faster than Map)
     const gridSize = gridWidth * gridHeight;
@@ -832,11 +832,11 @@ const updateNeighbours = (crowd: Crowd): void => {
     for (const agentId of agentIds) {
         const agent = crowd.agents[agentId];
 
+        const y = agent.position[1];
         const x = agent.position[0];
-        const z = agent.position[2];
+        const iy = Math.floor((y - minY) / cellSize);
         const ix = Math.floor((x - minX) / cellSize);
-        const iz = Math.floor((z - minZ) / cellSize);
-        const key = iz * gridWidth + ix;
+        const key = ix * gridWidth + iy;
 
         let cell = grid[key];
         if (!cell) {
@@ -851,20 +851,20 @@ const updateNeighbours = (crowd: Crowd): void => {
         const agent = crowd.agents[agentId];
         const queryRangeSqr = agent.collisionQueryRange * agent.collisionQueryRange;
 
+        const y = agent.position[1];
         const x = agent.position[0];
-        const z = agent.position[2];
+        const iy = Math.floor((y - minY) / cellSize);
         const ix = Math.floor((x - minX) / cellSize);
-        const iz = Math.floor((z - minZ) / cellSize);
 
         // check 3x3 grid around agent (including own cell)
-        for (let dz = -1; dz <= 1; dz++) {
-            for (let dx = -1; dx <= 1; dx++) {
-                const checkZ = iz + dz;
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
                 const checkX = ix + dx;
+                const checkY = iy + dy;
 
-                if (checkX < 0 || checkX >= gridWidth || checkZ < 0 || checkZ >= gridHeight) continue;
+                if (checkY < 0 || checkY >= gridWidth || checkX < 0 || checkX >= gridHeight) continue;
 
-                const cellKey = checkZ * gridWidth + checkX;
+                const cellKey = checkX * gridWidth + checkY;
                 const cell = grid[cellKey];
 
                 if (!cell) continue;
@@ -874,10 +874,10 @@ const updateNeighbours = (crowd: Crowd): void => {
 
                     const other = crowd.agents[otherAgentId];
 
-                    const dx = agent.position[0] - other.position[0];
                     const dy = agent.position[1] - other.position[1];
                     const dz = agent.position[2] - other.position[2];
-                    const distSqr = dx * dx + dy * dy + dz * dz;
+                    const dx = agent.position[0] - other.position[0];
+                    const distSqr = dy * dy + dz * dz + dx * dx;
 
                     if (distSqr < queryRangeSqr) {
                         agent.neis.push({ agentId: otherAgentId, dist: distSqr });
@@ -950,9 +950,9 @@ const updateCorners = (crowd: Crowd, navMesh: NavMesh): void => {
 };
 
 const dist2dSqr = (a: Vec3, b: Vec3): number => {
+    const dy = b[1] - a[1];
     const dx = b[0] - a[0];
-    const dz = b[2] - a[2];
-    return dx * dx + dz * dz;
+    return dy * dy + dx * dx;
 };
 
 const agentIsOverOffMeshConnection = (agent: Agent, radius: number): boolean => {
@@ -1050,7 +1050,7 @@ const calcStraightSteerDirection = (agent: Agent, corners: StraightPathPoint[]):
     }
 
     const direction = vec3.subtract(_calcStraightSteerDirection_direction, corners[0].position, agent.position);
-    direction[1] = 0; // Keep movement on XZ plane
+    direction[2] = 0; // Keep movement on XY plane
     vec3.normalize(direction, direction);
 
     const speed = agent.maxSpeed;
@@ -1078,8 +1078,8 @@ const calcSmoothSteerDirection = (agent: Agent, corners: StraightPathPoint[]): v
 
     const dir0 = vec3.subtract(_calcSmoothSteerDirection_dir0, p0, agent.position);
     const dir1 = vec3.subtract(_calcSmoothSteerDirection_dir1, p1, agent.position);
-    dir0[1] = 0;
-    dir1[1] = 0;
+    dir0[2] = 0;
+    dir1[2] = 0;
 
     const len0 = vec3.length(dir0);
     const len1 = vec3.length(dir1);
@@ -1089,9 +1089,9 @@ const calcSmoothSteerDirection = (agent: Agent, corners: StraightPathPoint[]): v
     }
 
     const direction = _calcSmoothSteerDirection_direction;
+    direction[1] = dir0[1] - dir1[1] * len0 * 0.5;
+    direction[2] = 0;
     direction[0] = dir0[0] - dir1[0] * len0 * 0.5;
-    direction[1] = 0;
-    direction[2] = dir0[2] - dir1[2] * len0 * 0.5;
 
     vec3.normalize(direction, direction);
 
@@ -1110,8 +1110,8 @@ const getDistanceToGoal = (agent: Agent, range: number) => {
 
     if (!isEndOfPath) return range;
 
-    vec2.set(_getDistanceToGoalStart, endPosition.position[0], endPosition.position[2]);
-    vec2.set(_getDistanceToGoalEnd, agent.position[0], agent.position[2]);
+    vec2.set(_getDistanceToGoalStart, endPosition.position[1], endPosition.position[0]);
+    vec2.set(_getDistanceToGoalEnd, agent.position[1], agent.position[0]);
 
     const dist = vec2.distance(_getDistanceToGoalStart, _getDistanceToGoalEnd);
 
@@ -1162,7 +1162,7 @@ const updateSteering = (crowd: Crowd): void => {
                 if (!nei) continue;
 
                 const diff = vec3.subtract(_updateSteering_separationDiff, agent.position, nei.position);
-                diff[1] = 0; // ignore Y axis
+                diff[2] = 0; // ignore Z axis
 
                 const distSqr = vec3.squaredLength(diff);
                 if (distSqr < 0.00001) continue;
@@ -1220,7 +1220,7 @@ const updateVelocityPlanning = (crowd: Crowd): void => {
                 const p2: Vec3 = [s[3], s[4], s[5]];
 
                 // only add segments that are in front of the agent
-                const triArea = (agent.position[0] - p1[0]) * (p2[2] - p1[2]) - (agent.position[2] - p1[2]) * (p2[0] - p1[0]);
+                const triArea = (agent.position[1] - p1[1]) * (p2[0] - p1[0]) - (agent.position[0] - p1[0]) * (p2[1] - p1[1]);
 
                 if (triArea < 0.0) {
                     continue;
@@ -1303,7 +1303,7 @@ const handleCollisions = (crowd: Crowd): void => {
                 if (!nei) continue;
 
                 const diff = vec3.subtract(_handleCollisions_diff, agent.position, nei.position);
-                diff[1] = 0; // ignore Y axis
+                diff[2] = 0; // ignore Z axis
 
                 const distSqr = vec3.squaredLength(diff);
                 const combinedRadius = agent.radius + nei.radius;
@@ -1321,9 +1321,9 @@ const handleCollisions = (crowd: Crowd): void => {
                     const idx1 = agentIds.indexOf(neiAgentId);
 
                     if (idx0 > idx1) {
-                        vec3.set(diff, -agent.desiredVelocity[2], 0, agent.desiredVelocity[0]);
+                        vec3.set(diff, agent.desiredVelocity[1], -agent.desiredVelocity[0], 0);
                     } else {
-                        vec3.set(diff, agent.desiredVelocity[2], 0, -agent.desiredVelocity[0]);
+                        vec3.set(diff, -agent.desiredVelocity[1], agent.desiredVelocity[0], 0);
                     }
                     pen = 0.01;
                 } else {
@@ -1498,7 +1498,7 @@ export const update = (crowd: Crowd, navMesh: NavMesh, deltaTime: number): void 
     // integrate
     integrate(crowd, deltaTime);
 
-    // handle agent x agent collisions
+    // handle agent vs agent collisions
     handleCollisions(crowd);
 
     // update corridors

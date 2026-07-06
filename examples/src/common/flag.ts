@@ -9,15 +9,15 @@ type Visual = {
  * Creates a flag visual (pole + flag) commonly used to mark positions in examples
  */
 export function createFlag(color: number): Visual {
-    const poleGeom = new THREE.BoxGeometry(0.12, 1.2, 0.12);
+    const poleGeom = new THREE.BoxGeometry(0.12, 0.12, 1.2);
     const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888 });
     const pole = new THREE.Mesh(poleGeom, poleMat);
-    pole.position.set(0, 0.6, 0);
+    pole.position.set(0, 0, 0.6);
 
-    const flagGeom = new THREE.BoxGeometry(0.32, 0.22, 0.04);
+    const flagGeom = new THREE.BoxGeometry(0.04, 0.32, 0.22);
     const flagMat = new THREE.MeshStandardMaterial({ color });
     const flag = new THREE.Mesh(flagGeom, flagMat);
-    flag.position.set(0.23, 1.0, 0);
+    flag.position.set(0, 0.23, 1.0);
 
     const group = new THREE.Group();
     group.add(pole);
