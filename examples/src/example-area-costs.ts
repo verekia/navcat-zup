@@ -31,8 +31,8 @@ import {
     type QueryFilter,
     rasterizeTriangles,
     WALKABLE_AREA,
-} from 'navcat';
-import { createNavMeshHelper, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup';
+import { createNavMeshHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three/webgpu';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
@@ -47,23 +47,23 @@ enum NavMeshAreaType {
 }
 
 const RED_ZONE_BOUNDS: Box3 = [
-    -8, -2, -2,
-    2, 2, 12,
+    -2, -8, -2,
+    12, 2, 2,
 ];
 
 const GREEN_ENTRY_BOUNDS: Box3 = [
-    2, -2, -12,
-    14, 2, -2,
+    -12, 2, -2,
+    -2, 14, 2,
 ];
 
 const GREEN_LANE_BOUNDS: Box3 = [
-    8, -2, -2,
-    14, 2, 12,
+    -2, 8, -2,
+    12, 14, 2,
 ];
 
 const GREEN_EXIT_BOUNDS: Box3 = [
-    -12, -2, 12,
-    14, 2, 20,
+    12, -12, -2,
+    20, 14, 2,
 ];
 
 const RED_COLOR = 0xff3b30;
@@ -75,7 +75,7 @@ const FLOOR_SIZE = 40;
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-18, 16, 22);
+camera.position.set(22, -18, 16);
 camera.lookAt(0, 0, 0);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
@@ -83,7 +83,6 @@ orbitControls.enableDamping = true;
 
 /* base floor */
 const floorGeometry = new THREE.PlaneGeometry(FLOOR_SIZE, FLOOR_SIZE);
-floorGeometry.rotateX(-Math.PI / 2);
 const floorMaterial = new THREE.MeshBasicMaterial({ color: 0x1d4ed8 });
 const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
 floorMesh.receiveShadow = true;
@@ -92,9 +91,8 @@ scene.add(floorMesh);
 /* zone overlays */
 function createOverlay(bounds: Box3, color: number) {
     const sizeX = bounds[3] - bounds[0];
-    const sizeZ = bounds[5] - bounds[2];
-    const geometry = new THREE.PlaneGeometry(sizeX, sizeZ);
-    geometry.rotateX(-Math.PI / 2);
+    const sizeY = bounds[4] - bounds[1];
+    const geometry = new THREE.PlaneGeometry(sizeX, sizeY);
     const material = new THREE.MeshBasicMaterial({
         color,
         transparent: false,
@@ -102,7 +100,7 @@ function createOverlay(bounds: Box3, color: number) {
         depthWrite: false,
     });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(bounds[0] + sizeX / 2, 0.01, bounds[2] + sizeZ / 2);
+    mesh.position.set(bounds[0] + sizeX / 2, bounds[1] + sizeY / 2, 0.01);
     mesh.renderOrder = 1;
     return mesh;
 }
@@ -303,9 +301,9 @@ const queryFilter: QueryFilter = {
 };
 
 /* path interaction */
-let start: Vec3 = [-6, 0, -10];
-let end: Vec3 = [-6, 0, 18];
-const halfExtents: Vec3 = [0.6, 1, 0.6];
+let start: Vec3 = [-10, -6, 0];
+let end: Vec3 = [18, -6, 0];
+const halfExtents: Vec3 = [0.6, 0.6, 1];
 
 type Visual = { object: THREE.Object3D; dispose: () => void };
 let visuals: Visual[] = [];

@@ -36,8 +36,8 @@ import {
     polyMeshDetailToTileDetailMesh,
     polyMeshToTilePolys,
     rasterizeTriangles,
-} from 'navcat';
-import { createCompactHeightfieldSolidHelper, createHeightfieldHelper, createNavMeshHelper, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup';
+import { createCompactHeightfieldSolidHelper, createHeightfieldHelper, createNavMeshHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
 import * as THREE from 'three/webgpu';
@@ -97,27 +97,27 @@ type NavMeshResult = {
 
 /* Shared area definitions (single source of truth for rasterization and helpers) */
 const waterBox: Box3 = [
-    5, -1, -8,
-    11, 1, -3,
+    -8, 5, -1,
+    -3, 11, 1,
 ];
 
-const grassCylinderCenter: Vec3 = [9, 1.5, 3.5];
+const grassCylinderCenter: Vec3 = [3.5, 9, 1.5];
 const grassCylinderRadius = 0.5;
 const grassCylinderHeight = 2;
 
 // biome-ignore format: readability
 const roadVerts = [
-    -2, 0, 5, // bottom-left
-    2, 0, 5, // bottom-right
-    3, 0, 3, // top-right
-    0, 0, 2, // mid
-    -3, 0, 3, // top-left
+    5, -2, 0, // bottom-left
+    5, 2, 0, // bottom-right
+    3, 3, 0, // top-right
+    2, 0, 0, // mid
+    3, -3, 0, // top-left
 ];
-const roadMinY = -0.5;
-const roadMaxY = 1.5;
+const roadMinZ = -0.5;
+const roadMaxZ = 1.5;
 
-const iceRinkCenter: Vec3 = [-3, 0, -3];
-const iceRinkHalfExtentsParam: Vec3 = [1, 1, 4];
+const iceRinkCenter: Vec3 = [-3, -3, 0];
+const iceRinkHalfExtentsParam: Vec3 = [4, 1, 1];
 const iceRinkRotation = degreesToRadians(40);
 
 function generateNavMesh(input: NavMeshInput, options: NavMeshOptions): NavMeshResult {
@@ -193,7 +193,7 @@ function generateNavMesh(input: NavMeshInput, options: NavMeshOptions): NavMeshR
     markCylinderArea(grassCylinderCenter, grassCylinderRadius, grassCylinderHeight, NavMeshAreaType.C, compactHeightfield);
 
     // Example 3: markConvexPolyArea - mark a trapezoidal road area
-    markConvexPolyArea(roadVerts, roadMinY, roadMaxY, NavMeshAreaType.D, compactHeightfield);
+    markConvexPolyArea(roadVerts, roadMinZ, roadMaxZ, NavMeshAreaType.D, compactHeightfield);
 
     // Example 4: markRotatedBoxArea - mark a rotated rectangular ice rink area
     markRotatedBoxArea(iceRinkCenter, iceRinkHalfExtentsParam, iceRinkRotation, NavMeshAreaType.E, compactHeightfield);
@@ -300,13 +300,16 @@ function generateNavMesh(input: NavMeshInput, options: NavMeshOptions): NavMeshR
 /* setup example scene */
 const container = document.getElementById('root')!;
 
+// z-up world
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
 // scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
 
 // camera
 const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(0, 0, 20);
+camera.position.set(20, 0, 0);
 
 // renderer
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -336,7 +339,7 @@ window.addEventListener('resize', onWindowResize);
 
 await renderer.init();
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -418,16 +421,16 @@ const debugConfig = {
 };
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 const heightfieldHelper = createHeightfieldHelper(navMeshResult.intermediates.heightfield);
-heightfieldHelper.object.position.y += 0.05;
+heightfieldHelper.object.position.z += 0.05;
 scene.add(heightfieldHelper.object);
 
 const compactHeightfieldHelper = createCompactHeightfieldSolidHelper(navMeshResult.intermediates.compactHeightfield);
 scene.add(compactHeightfieldHelper.object);
-compactHeightfieldHelper.object.position.y += 0.1;
+compactHeightfieldHelper.object.position.z += 0.1;
 
 /* Area marker visuals (use the same shared variables so editing one place updates both behavior and visuals) */
 type Visual = { object: THREE.Object3D; dispose: () => void };
@@ -451,9 +454,10 @@ function createAreaVisuals() {
 
     // grass cylinder
     const grassGeom = new THREE.CylinderGeometry(grassCylinderRadius, grassCylinderRadius, grassCylinderHeight, 32);
+    grassGeom.rotateX(Math.PI / 2);
     const grassMat = new THREE.MeshStandardMaterial({ color: 0x4caf50, opacity: 0.35, transparent: true });
     const grassMesh = new THREE.Mesh(grassGeom, grassMat);
-    grassMesh.position.set(grassCylinderCenter[0], grassCylinderCenter[1] + grassCylinderHeight / 2, grassCylinderCenter[2]);
+    grassMesh.position.set(grassCylinderCenter[0], grassCylinderCenter[1], grassCylinderCenter[2] + grassCylinderHeight / 2);
     areaVisuals.push({
         object: grassMesh,
         dispose: () => {
@@ -465,7 +469,7 @@ function createAreaVisuals() {
     // road polygon (wireframe loop)
     const roadPoints: THREE.Vector3[] = [];
     for (let i = 0; i < roadVerts.length; i += 3) {
-        roadPoints.push(new THREE.Vector3(roadVerts[i], roadVerts[i + 1] + 0.05, roadVerts[i + 2]));
+        roadPoints.push(new THREE.Vector3(roadVerts[i], roadVerts[i + 1], roadVerts[i + 2] + 0.05));
     }
     // close loop
     if (roadPoints.length > 0) roadPoints.push(roadPoints[0].clone());
@@ -486,7 +490,7 @@ function createAreaVisuals() {
     const iceRinkMat = new THREE.MeshStandardMaterial({ color: 0xff0099, opacity: 0.35, transparent: true });
     const iceRinkMesh = new THREE.Mesh(iceRinkGeom, iceRinkMat);
     iceRinkMesh.position.set(iceRinkCenter[0], iceRinkCenter[1], iceRinkCenter[2]);
-    iceRinkMesh.rotation.y = iceRinkRotation;
+    iceRinkMesh.rotation.z = iceRinkRotation;
     areaVisuals.push({
         object: iceRinkMesh,
         dispose: () => {
