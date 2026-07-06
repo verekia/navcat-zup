@@ -1,7 +1,7 @@
-import type { NavMesh, NodeRef } from 'navcat';
-import { getNodeByTileAndPoly, getNodeRefIndex } from 'navcat';
-import { floodFillNavMesh, generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshPolyHelper, type DebugObject, getPositionsAndIndices } from 'navcat/three';
+import type { NavMesh, NodeRef } from 'navcat-zup';
+import { getNodeByTileAndPoly, getNodeRefIndex } from 'navcat-zup';
+import { floodFillNavMesh, generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshPolyHelper, type DebugObject, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { createExample } from './common/example-base';
@@ -11,7 +11,7 @@ import { loadGLTF } from './common/load-gltf';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -98,7 +98,7 @@ const createPolyHelpers = (navMesh: NavMesh): void => {
             const helper = createNavMeshPolyHelper(navMesh, node.ref, [0.3, 0.8, 0.3]);
 
             // initially visible with normal appearance
-            helper.object.position.y += 0.1; // adjust height for visibility
+            helper.object.position.z += 0.1; // adjust height for visibility
             scene.add(helper.object);
 
             polyHelpers.set(node.ref, {
@@ -291,8 +291,8 @@ function findClickedPolygon(raycaster: THREE.Raycaster): NodeRef | null {
                 const vertIndex = poly.vertices[i] * 3;
                 vertices.push(
                     tile.vertices[vertIndex],
-                    tile.vertices[vertIndex + 1] + 0.1, // Slightly elevated
-                    tile.vertices[vertIndex + 2],
+                    tile.vertices[vertIndex + 1],
+                    tile.vertices[vertIndex + 2] + 0.1, // Slightly elevated
                 );
             }
 

@@ -55,7 +55,7 @@ const _findLocalNeighbourhood_distancePtSegSqr2dResult = createDistancePtSegSqr2
  * It is not projected onto the surface of the mesh, so its y-value will affect the costs.
  *
  * Intersection tests occur in 2D. All polygons and the search circle are projected onto
- * the xz-plane. So the y-value of the center point does not affect intersection tests.
+ * the xy-plane. So the z-value of the center point does not affect intersection tests.
  *
  * @param navMesh The navigation mesh
  * @param startNodeRef The reference ID of the starting polygon

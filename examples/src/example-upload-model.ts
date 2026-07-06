@@ -8,7 +8,7 @@ import {
     getNodeRefType,
     NodeType,
     createFindNearestPolyResult,
-} from 'navcat';
+} from 'navcat-zup';
 import * as THREE from 'three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
@@ -30,11 +30,11 @@ import {
     createSimplifiedContoursHelper,
     createTriangleAreaIdsHelper,
     type DebugObject,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import { createExample } from './common/example-base';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat/blocks';
-import { getPositionsAndIndices } from 'navcat/three';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat-zup/blocks';
+import { getPositionsAndIndices } from 'navcat-zup/three';
 import { loadGLTF } from './common/load-gltf';
 import { createFlag } from './common/flag';
 
@@ -42,13 +42,14 @@ import { createFlag } from './common/flag';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
 
 // Add grid helper for reference
 const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+gridHelper.rotation.x = Math.PI / 2;
 scene.add(gridHelper);
 
 /* state variables */
@@ -451,7 +452,7 @@ function updateDebugHelpers() {
 
     if (debugConfig.showNavMesh) {
         debugHelpers.navMesh = createNavMeshHelper(navMesh);
-        debugHelpers.navMesh.object.position.y += 0.1;
+        debugHelpers.navMesh.object.position.z += 0.1;
         scene.add(debugHelpers.navMesh.object);
     }
 
@@ -546,7 +547,7 @@ function updatePath() {
             const node = nodePath.path[i];
             if (getNodeRefType(node) === NodeType.POLY) {
                 const polyHelper = createNavMeshPolyHelper(navMesh, node);
-                polyHelper.object.position.y += 0.15;
+                polyHelper.object.position.z += 0.15;
                 addPathVisual(polyHelper);
             }
         }
@@ -652,7 +653,7 @@ function updateQuery(point: THREE.Vector3) {
     if (result.success) {
         // Show the poly
         const polyHelper = createNavMeshPolyHelper(navMesh, result.nodeRef);
-        polyHelper.object.position.y += 0.1;
+        polyHelper.object.position.z += 0.1;
         addQueryVisual(polyHelper);
 
         // Update info panel
@@ -1007,7 +1008,7 @@ function fitCameraToModel() {
     cameraZ *= 1.5;
 
     // Position camera
-    camera.position.set(center.x - cameraZ * 0.5, center.y + cameraZ * 0.5, center.z + cameraZ);
+    camera.position.set(center.x + cameraZ, center.y - cameraZ * 0.5, center.z + cameraZ * 0.5);
     camera.lookAt(center);
 
     // Update orbit controls target
@@ -1019,7 +1020,7 @@ function resetCamera() {
     if (currentModel) {
         fitCameraToModel();
     } else {
-        camera.position.set(-2, 10, 10);
+        camera.position.set(10, -2, 10);
         camera.lookAt(0, 0, 0);
         orbitControls.target.set(0, 0, 0);
         orbitControls.update();

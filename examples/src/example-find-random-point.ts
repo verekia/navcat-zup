@@ -1,7 +1,7 @@
 import GUI from 'lil-gui';
-import { DEFAULT_QUERY_FILTER, findRandomPoint } from 'navcat';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, getPositionsAndIndices } from 'navcat/three';
+import { DEFAULT_QUERY_FILTER, findRandomPoint } from 'navcat-zup';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import { createExample } from './common/example-base';
@@ -11,7 +11,7 @@ import { loadGLTF } from './common/load-gltf';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -89,14 +89,14 @@ const navMeshResult = generateTiledNavMesh(navMeshInput, navMeshConfig);
 const navMesh = navMeshResult.navMesh;
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 /* find random point logic */
 const pointMesh = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), new THREE.MeshBasicMaterial({ color: 0xff0000 }));
 scene.add(pointMesh);
 
-const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), pointMesh.position, 1, 0xffff00, 0.2);
+const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), pointMesh.position, 1, 0xffff00, 0.2);
 scene.add(arrow);
 
 const updateRandomPoint = () => {
@@ -105,9 +105,9 @@ const updateRandomPoint = () => {
     if (result.success) {
         pointMesh.position.fromArray(result.position);
 
-        arrow.setDirection(new THREE.Vector3(0, -1, 0));
+        arrow.setDirection(new THREE.Vector3(0, 0, -1));
         arrow.position.copy(pointMesh.position);
-        arrow.position.y += 1.5;
+        arrow.position.z += 1.5;
     }
 };
 

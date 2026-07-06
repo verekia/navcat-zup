@@ -31,7 +31,7 @@ import {
     polyMeshToTilePolys,
     rasterizeTriangles,
     WALKABLE_AREA,
-} from 'navcat';
+} from 'navcat-zup';
 
 export type SoloNavMeshInput = {
     positions: ArrayLike<number>;
@@ -264,8 +264,8 @@ export function generateSoloNavMesh(input: SoloNavMeshInput, options: SoloNavMes
     /* create a single tile nav mesh */
 
     const nav = createNavMesh();
-    nav.tileWidth = polyMesh.bounds[3] - polyMesh.bounds[0];
-    nav.tileHeight = polyMesh.bounds[5] - polyMesh.bounds[2];
+    nav.tileWidth = polyMesh.bounds[4] - polyMesh.bounds[1];
+    nav.tileHeight = polyMesh.bounds[3] - polyMesh.bounds[0];
     box3.min(nav.origin, polyMesh.bounds);
 
     const tilePolys = polyMeshToTilePolys(polyMesh);

@@ -41,9 +41,9 @@ export const polyMeshToTilePolys = (polyMesh: PolyMesh): NavMeshTilePolys => {
     // convert vertices to world space
     // we do this after buildPolyNeighbours so that neighbour calculation can be done with quantized values
     for (let i = 0; i < vertices.length; i += 3) {
+        vertices[i + 1] = polyMesh.bounds[1] + vertices[i + 1] * polyMesh.cellSize;
+        vertices[i + 2] = polyMesh.bounds[2] + vertices[i + 2] * polyMesh.cellHeight;
         vertices[i] = polyMesh.bounds[0] + vertices[i] * polyMesh.cellSize;
-        vertices[i + 1] = polyMesh.bounds[1] + vertices[i + 1] * polyMesh.cellHeight;
-        vertices[i + 2] = polyMesh.bounds[2] + vertices[i + 2] * polyMesh.cellSize;
     }
 
     return {
@@ -83,12 +83,12 @@ export const polygonsToNavMeshTilePolys = (
         });
     }
 
+    const minY = bounds[1];
     const minX = bounds[0];
-    const minZ = bounds[2];
+    const maxY = bounds[4];
     const maxX = bounds[3];
-    const maxZ = bounds[5];
 
-    buildPolyNeighbours(polys, vertices, borderSize, minX, minZ, maxX, maxZ);
+    buildPolyNeighbours(polys, vertices, borderSize, minY, minX, maxY, maxX);
 
     return {
         vertices,

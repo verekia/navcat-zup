@@ -41,7 +41,7 @@ import {
     type QueryFilter,
     rasterizeTriangles,
     WALKABLE_AREA,
-} from 'navcat';
+} from 'navcat-zup';
 import {
     createCompactHeightfieldSolidHelper,
     createHeightfieldHelper,
@@ -49,7 +49,7 @@ import {
     createNavMeshPolyHelper,
     createSearchNodesHelper,
     getPositionsAndIndices,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import { LineGeometry, OrbitControls } from 'three/examples/jsm/Addons.js';
 import { Line2 } from 'three/examples/jsm/lines/webgpu/Line2.js';
 import * as THREE from 'three/webgpu';
@@ -304,13 +304,16 @@ function generateNavMesh(input: NavMeshInput, options: NavMeshOptions): NavMeshR
 /* setup example scene */
 const container = document.getElementById('root')!;
 
+// z-up world
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
 // scene
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
 
 // camera
 const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(0, 0, 20);
+camera.position.set(20, 0, 0);
 
 // renderer
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -340,7 +343,7 @@ window.addEventListener('resize', onWindowResize);
 
 await renderer.init();
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -365,8 +368,8 @@ const navMeshInput: NavMeshInput = {
     positions,
     indices,
     waterBounds: [
-        -100, -1, -100,
-        100, 1, 100,
+        -100, -100, -1,
+        100, 100, 1,
     ],
 };
 
@@ -426,16 +429,16 @@ const debugConfig = {
 };
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 const heightfieldHelper = createHeightfieldHelper(navMeshResult.intermediates.heightfield);
-heightfieldHelper.object.position.y += 0.05;
+heightfieldHelper.object.position.z += 0.05;
 scene.add(heightfieldHelper.object);
 
 const compactHeightfieldHelper = createCompactHeightfieldSolidHelper(navMeshResult.intermediates.compactHeightfield);
 scene.add(compactHeightfieldHelper.object);
-compactHeightfieldHelper.object.position.y += 0.1;
+compactHeightfieldHelper.object.position.z += 0.1;
 
 const gui = new GUI();
 
@@ -461,8 +464,8 @@ const queryFilterFolder = gui.addFolder('Query Filter');
 queryFilterFolder.add(queryFilterConfig, 'filter', ['all', 'ground', 'water']).name('area').onChange(updatePath);
 
 /* find path */
-let start: Vec3 = [-8, 1.5, -2.3];
-let end: Vec3 = [8, 1, -0.5];
+let start: Vec3 = [-2.3, -8, 1.5];
+let end: Vec3 = [-0.5, 8, 1];
 const halfExtents: Vec3 = [1, 1, 1];
 
 type Visual = { object: THREE.Object3D; dispose: () => void };
@@ -514,7 +517,7 @@ function updatePath() {
             const node = nodePath.path[i];
             if (getNodeRefType(node) === NodeType.POLY) {
                 const polyHelper = createNavMeshPolyHelper(navMesh, node);
-                polyHelper.object.position.y += 0.15;
+                polyHelper.object.position.z += 0.15;
                 addVisual(polyHelper);
             }
         }

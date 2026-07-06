@@ -1,8 +1,8 @@
 {
-    "name": "navcat",
+    "name": "navcat-zup",
     "version": "0.4.1",
     "author": "Isaac Mason <isaac@isaacmason.com>",
-    "description": "",
+    "description": "Z-up fork of navcat: a javascript navigation mesh construction and querying library for 3D floor-based navigation.",
     "keywords": [],
     "license": "MIT",
     "type": "module",
@@ -29,14 +29,14 @@
     ],
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/isaac-mason/navcat.git"
+        "url": "git+https://github.com/verekia/navcat-zup.git"
     },
     "scripts": {
         "build": "rm -rf ./dist && rollup --config rollup.config.mjs",
         "format": "biome format --write src/.",
         "lint": "biome lint --write src/.",
         "docs": "cd docs && node ./build.js",
-        "typedoc": "typedoc --tsconfig ./tsconfig.json --name \"navcat docs\" --out ./dist-typedoc ./src/index.ts ./blocks/index.ts ./three/index.ts",
+        "typedoc": "typedoc --tsconfig ./tsconfig.json --name \"navcat-zup docs\" --out ./dist-typedoc ./src/index.ts ./blocks/index.ts ./three/index.ts",
         "test": "vitest"
     },
     "packageManager": "pnpm@8.15.2+sha1.798034f615aa211c6c2ae00010cc20be5fc102ee",
@@ -47,7 +47,7 @@
         "three": ">=0.180.0"
     },
     "peerDependenciesMeta": {
-        "three": { 
+        "three": {
             "optional": true
         }
     },

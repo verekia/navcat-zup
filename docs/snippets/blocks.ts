@@ -1,6 +1,6 @@
 /* SNIPPET_START: quickstart */
-import { DEFAULT_QUERY_FILTER, findPath, type Vec3 } from 'navcat';
-import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat/blocks';
+import { DEFAULT_QUERY_FILTER, findPath, type Vec3 } from 'navcat-zup';
+import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat-zup/blocks';
 
 /* generation input */
 // populate positions and indices with your level geometry
@@ -85,8 +85,8 @@ const intermediates = result.intermediates; // intermediate data for debugging
 console.log('generated navmesh:', navMesh, intermediates);
 
 /* find a path */
-const start: Vec3 = [-4, 0, -4];
-const end: Vec3 = [4, 0, 4];
+const start: Vec3 = [-4, -4, 0];
+const end: Vec3 = [4, 4, 0];
 const halfExtents: Vec3 = [0.5, 0.5, 0.5];
 
 const path = findPath(navMesh, start, end, halfExtents, DEFAULT_QUERY_FILTER);

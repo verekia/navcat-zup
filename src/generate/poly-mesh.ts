@@ -29,9 +29,9 @@ export type PolyMesh = {
     localWidth: number;
     /** the height in local space */
     localHeight: number;
-    /** The size of each cell. (On the xz-plane.) */
+    /** The size of each cell. (On the xy-plane.) */
     cellSize: number;
-    /** The height of each cell. (The minimum increment along the y-axis.) */
+    /** The height of each cell. (The minimum increment along the z-axis.) */
     cellHeight: number;
     /** The AABB border size used to generate the source data from which the mesh was derived */
     borderSize: number;
@@ -39,9 +39,9 @@ export type PolyMesh = {
     maxEdgeError: number;
 };
 
-type VertexEntry = [y: number, index: number];
+type VertexEntry = [z: number, index: number];
 
-const VERTEX_Y_TOLERANCE = 2;
+const VERTEX_Z_TOLERANCE = 2;
 
 const addVertex = (
     x: number,
@@ -51,16 +51,16 @@ const addVertex = (
     vflags: number[],
     vertexMap: Record<string, VertexEntry[]>,
 ): number => {
-    // key by X and Z only; we'll search the bucket for a vertex with similar Y
-    const keyXZ = `${x},${z}`;
-    const bucket = vertexMap[keyXZ];
+    // key by X and Y only; we'll search the bucket for a vertex with similar Z
+    const keyXY = `${x},${y}`;
+    const bucket = vertexMap[keyXY];
 
     if (bucket) {
         for (let i = 0; i < bucket.length; i++) {
             const entry = bucket[i];
-            const [entryY, idx] = entry;
-            // x and z match, check y tolerance
-            if (Math.abs(entryY - y) <= VERTEX_Y_TOLERANCE) {
+            const [entryZ, idx] = entry;
+            // x and y match, check z tolerance
+            if (Math.abs(entryZ - z) <= VERTEX_Z_TOLERANCE) {
                 return idx;
             }
         }
@@ -71,12 +71,12 @@ const addVertex = (
 
     vertices.push(x, y, z);
 
-    const newEntry: VertexEntry = [y, i];
+    const newEntry: VertexEntry = [z, i];
 
     if (bucket) {
         bucket.push(newEntry);
     } else {
-        vertexMap[keyXZ] = [newEntry];
+        vertexMap[keyXY] = [newEntry];
     }
 
     vflags.push(0);
@@ -88,7 +88,7 @@ const prev = (i: number, n: number): number => (i - 1 >= 0 ? i - 1 : n - 1);
 const next = (i: number, n: number): number => (i + 1 < n ? i + 1 : 0);
 
 const area2 = (vertexA: number[], vertexB: number[], vertexC: number[]): number => {
-    return (vertexB[0] - vertexA[0]) * (vertexC[2] - vertexA[2]) - (vertexC[0] - vertexA[0]) * (vertexB[2] - vertexA[2]);
+    return (vertexB[1] - vertexA[1]) * (vertexC[0] - vertexA[0]) - (vertexC[1] - vertexA[1]) * (vertexB[0] - vertexA[0]);
 };
 
 const xorb = (x: boolean, y: boolean): boolean => !x !== !y;
@@ -126,15 +126,15 @@ const intersectProp = (
 
 const between = (startVertex: number[], endVertex: number[], testVertex: number[]): boolean => {
     if (!collinear(startVertex, endVertex, testVertex)) return false;
-    if (startVertex[0] !== endVertex[0]) {
+    if (startVertex[1] !== endVertex[1]) {
         return (
-            (startVertex[0] <= testVertex[0] && testVertex[0] <= endVertex[0]) ||
-            (startVertex[0] >= testVertex[0] && testVertex[0] >= endVertex[0])
+            (startVertex[1] <= testVertex[1] && testVertex[1] <= endVertex[1]) ||
+            (startVertex[1] >= testVertex[1] && testVertex[1] >= endVertex[1])
         );
     }
     return (
-        (startVertex[2] <= testVertex[2] && testVertex[2] <= endVertex[2]) ||
-        (startVertex[2] >= testVertex[2] && testVertex[2] >= endVertex[2])
+        (startVertex[0] <= testVertex[0] && testVertex[0] <= endVertex[0]) ||
+        (startVertex[0] >= testVertex[0] && testVertex[0] >= endVertex[0])
     );
 };
 
@@ -148,8 +148,8 @@ const intersect = (segmentAStart: number[], segmentAEnd: number[], segmentBStart
     );
 };
 
-// returns whether the two vertices are equal in the XZ plane
-const vec3EqualXZ = (vertexA: number[], vertexB: number[]): boolean => vertexA[0] === vertexB[0] && vertexA[2] === vertexB[2];
+// returns whether the two vertices are equal in the XY plane
+const vec3EqualXY = (vertexA: number[], vertexB: number[]): boolean => vertexA[1] === vertexB[1] && vertexA[0] === vertexB[0];
 
 const _diagonalStart = vec3.create();
 const _diagonalEnd = vec3.create();
@@ -175,10 +175,10 @@ const diagonalie = (
             const edgeEnd = vec3.fromBuffer(_edgeEnd, vertices, (vertexIndices[k1] & 0x0fffffff) * 4);
 
             if (
-                vec3EqualXZ(diagonalStart, edgeStart) ||
-                vec3EqualXZ(diagonalEnd, edgeStart) ||
-                vec3EqualXZ(diagonalStart, edgeEnd) ||
-                vec3EqualXZ(diagonalEnd, edgeEnd)
+                vec3EqualXY(diagonalStart, edgeStart) ||
+                vec3EqualXY(diagonalEnd, edgeStart) ||
+                vec3EqualXY(diagonalStart, edgeEnd) ||
+                vec3EqualXY(diagonalEnd, edgeEnd)
             ) {
                 continue;
             }
@@ -253,10 +253,10 @@ const diagonalieLoose = (
             const edgeEnd = vec3.fromBuffer(_edgeEnd, vertices, (vertexIndices[k1] & 0x0fffffff) * 4);
 
             if (
-                vec3EqualXZ(diagonalStart, edgeStart) ||
-                vec3EqualXZ(diagonalEnd, edgeStart) ||
-                vec3EqualXZ(diagonalStart, edgeEnd) ||
-                vec3EqualXZ(diagonalEnd, edgeEnd)
+                vec3EqualXY(diagonalStart, edgeStart) ||
+                vec3EqualXY(diagonalEnd, edgeStart) ||
+                vec3EqualXY(diagonalStart, edgeEnd) ||
+                vec3EqualXY(diagonalEnd, edgeEnd)
             ) {
                 continue;
             }
@@ -341,9 +341,9 @@ const triangulate = (
                 const p0 = vec3.fromBuffer(_triangulateP0, vertices, (vertexIndices[i] & 0x0fffffff) * 4);
                 const p2 = vec3.fromBuffer(_triangulateP2, vertices, (vertexIndices[next(i1, nv)] & 0x0fffffff) * 4);
 
+                const dy = p2[1] - p0[1];
                 const dx = p2[0] - p0[0];
-                const dy = p2[2] - p0[2];
-                const len = dx * dx + dy * dy;
+                const len = dy * dy + dx * dx;
 
                 if (minLen < 0 || len < minLen) {
                     minLen = len;
@@ -362,9 +362,9 @@ const triangulate = (
                     const p0 = vec3.fromBuffer(_triangulateP0, vertices, (vertexIndices[i] & 0x0fffffff) * 4);
                     const p2 = vec3.fromBuffer(_triangulateP2, vertices, (vertexIndices[next(i2, nv)] & 0x0fffffff) * 4);
 
+                    const dy = p2[1] - p0[1];
                     const dx = p2[0] - p0[0];
-                    const dy = p2[2] - p0[2];
-                    const len = dx * dx + dy * dy;
+                    const len = dy * dy + dx * dx;
 
                     if (minLen < 0 || len < minLen) {
                         minLen = len;
@@ -427,8 +427,8 @@ const countPolyVerts = (polygons: number[], polyStartIdx: number, maxVerticesPer
 
 const uleft = (firstVertex: number[], secondVertex: number[], testVertex: number[]): boolean => {
     return (
-        (secondVertex[0] - firstVertex[0]) * (testVertex[2] - firstVertex[2]) -
-            (testVertex[0] - firstVertex[0]) * (secondVertex[2] - firstVertex[2]) <
+        (secondVertex[1] - firstVertex[1]) * (testVertex[0] - firstVertex[0]) -
+            (testVertex[1] - firstVertex[1]) * (secondVertex[0] - firstVertex[0]) <
         0
     );
 };
@@ -479,9 +479,9 @@ const getPolyMergeValue = (
     const vc = polygons[polyBStartIdx + ((eb + 2) % numVertsB)];
     if (
         !uleft(
-            [vertices[va * 3], 0, vertices[va * 3 + 2]],
-            [vertices[vb * 3], 0, vertices[vb * 3 + 2]],
-            [vertices[vc * 3], 0, vertices[vc * 3 + 2]],
+            [vertices[va * 3], vertices[va * 3 + 1], 0],
+            [vertices[vb * 3], vertices[vb * 3 + 1], 0],
+            [vertices[vc * 3], vertices[vc * 3 + 1], 0],
         )
     ) {
         return { value: -1, ea: -1, eb: -1 };
@@ -492,9 +492,9 @@ const getPolyMergeValue = (
     const vc2 = polygons[polyAStartIdx + ((ea + 2) % numVertsA)];
     if (
         !uleft(
-            [vertices[va2 * 3], 0, vertices[va2 * 3 + 2]],
-            [vertices[vb2 * 3], 0, vertices[vb2 * 3 + 2]],
-            [vertices[vc2 * 3], 0, vertices[vc2 * 3 + 2]],
+            [vertices[va2 * 3], vertices[va2 * 3 + 1], 0],
+            [vertices[vb2 * 3], vertices[vb2 * 3 + 1], 0],
+            [vertices[vc2 * 3], vertices[vc2 * 3 + 1], 0],
         )
     ) {
         return { value: -1, ea: -1, eb: -1 };
@@ -502,10 +502,10 @@ const getPolyMergeValue = (
 
     const vaEdge = polygons[polyAStartIdx + ea];
     const vbEdge = polygons[polyAStartIdx + ((ea + 1) % numVertsA)];
+    const dy = vertices[vaEdge * 3 + 1] - vertices[vbEdge * 3 + 1];
     const dx = vertices[vaEdge * 3] - vertices[vbEdge * 3];
-    const dy = vertices[vaEdge * 3 + 2] - vertices[vbEdge * 3 + 2];
 
-    return { value: dx * dx + dy * dy, ea, eb };
+    return { value: dy * dy + dx * dx, ea, eb };
 };
 
 const mergePolyVerts = (
@@ -885,9 +885,9 @@ const removeVertex = (ctx: BuildContextState, mesh: PolyMesh, remVertexIdx: numb
 
     // Remove vertex
     for (let i = remVertexIdx; i < mesh.nVertices - 1; i++) {
-        mesh.vertices[i * 3] = mesh.vertices[(i + 1) * 3];
         mesh.vertices[i * 3 + 1] = mesh.vertices[(i + 1) * 3 + 1];
         mesh.vertices[i * 3 + 2] = mesh.vertices[(i + 1) * 3 + 2];
+        mesh.vertices[i * 3] = mesh.vertices[(i + 1) * 3];
     }
     mesh.nVertices--;
 
@@ -972,9 +972,9 @@ const removeVertex = (ctx: BuildContextState, mesh: PolyMesh, remVertexIdx: numb
 
     for (let i = 0; i < nhole; i++) {
         const pi = hole[i];
-        tverts[i * 4] = mesh.vertices[pi * 3];
         tverts[i * 4 + 1] = mesh.vertices[pi * 3 + 1];
         tverts[i * 4 + 2] = mesh.vertices[pi * 3 + 2];
+        tverts[i * 4] = mesh.vertices[pi * 3];
         tverts[i * 4 + 3] = 0;
         thole[i] = i;
     }

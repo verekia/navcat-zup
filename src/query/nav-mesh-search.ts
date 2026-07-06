@@ -249,9 +249,9 @@ export const getEdgeMidPoint = (navMesh: NavMesh, fromNodeRef: NodeRef, toNodeRe
         return false;
     }
 
-    outMidPoint[0] = (_edgeMidPointPortalLeft[0] + _edgeMidPointPortalRight[0]) * 0.5;
     outMidPoint[1] = (_edgeMidPointPortalLeft[1] + _edgeMidPointPortalRight[1]) * 0.5;
     outMidPoint[2] = (_edgeMidPointPortalLeft[2] + _edgeMidPointPortalRight[2]) * 0.5;
+    outMidPoint[0] = (_edgeMidPointPortalLeft[0] + _edgeMidPointPortalRight[0]) * 0.5;
 
     return true;
 };
@@ -295,7 +295,7 @@ export type FindNodePathOptions = {
  * the last node in the path will be the nearest the end node.
  *
  * The start and end positions are used to calculate traversal costs.
- * (The y-values impact the result.)
+ * (The z-values impact the result.)
  *
  * @param startNodeRef The reference ID of the starting node.
  * @param endNodeRef The reference ID of the ending node.
@@ -1176,8 +1176,8 @@ export type MoveAlongSurfaceResult = {
  *
  * @param navMesh The navigation mesh
  * @param startNodeRef The reference ID of the starting polygon
- * @param startPosition The starting position [(x, y, z)]
- * @param endPosition The ending position [(x, y, z)]
+ * @param startPosition The starting position [(y, z, x)]
+ * @param endPosition The ending position [(y, z, x)]
  * @param filter The query filter.
  * @returns Result containing status, final position, and visited polygons
  */
@@ -1244,9 +1244,9 @@ export const moveAlongSurface = (
         const vertices = _moveAlongSurface_vertices;
         for (let i = 0; i < nv; ++i) {
             const start = poly.vertices[i] * 3;
-            vertices[i * 3] = tile.vertices[start];
             vertices[i * 3 + 1] = tile.vertices[start + 1];
             vertices[i * 3 + 2] = tile.vertices[start + 2];
+            vertices[i * 3] = tile.vertices[start];
         }
 
         // if target is inside the poly, stop search
@@ -1361,7 +1361,7 @@ export const moveAlongSurface = (
             );
 
             if (polyHeightResult.success) {
-                result.position[1] = polyHeightResult.height;
+                result.position[2] = polyHeightResult.height;
             }
         }
     }
@@ -1400,7 +1400,7 @@ export type RaycastResult = {
  * the start position toward the end position.
  *
  * This method is meant to be used for quick, short distance checks.
- * The raycast ignores the y-value of the end position (2D check).
+ * The raycast ignores the z-value of the end position (2D check).
  *
  * @param navMesh The navigation mesh to use for the raycast.
  * @param startNodeRef The NodeRef for the start polygon
@@ -1453,9 +1453,9 @@ const raycastBase = (
         const vertices = _raycast_vertices;
         for (let i = 0; i < nv; i++) {
             const start = poly.vertices[i] * 3;
-            vertices[i * 3] = tile.vertices[start];
             vertices[i * 3 + 1] = tile.vertices[start + 1];
             vertices[i * 3 + 2] = tile.vertices[start + 2];
+            vertices[i * 3] = tile.vertices[start];
         }
 
         // cast ray against current polygon
@@ -1530,19 +1530,6 @@ const raycastBase = (
             if (link.side === 0 || link.side === 4) {
                 // calculate link size
                 const s = 1.0 / 255.0;
-                let lmin = left[2] + (right[2] - left[2]) * (link.bmin * s);
-                let lmax = left[2] + (right[2] - left[2]) * (link.bmax * s);
-                if (lmin > lmax) [lmin, lmax] = [lmax, lmin];
-
-                // find Z intersection
-                const z = startPosition[2] + (endPosition[2] - startPosition[2]) * intersectSegmentPoly2DResult.tmax;
-                if (z >= lmin && z <= lmax) {
-                    nextRef = link.toNodeRef;
-                    break;
-                }
-            } else if (link.side === 2 || link.side === 6) {
-                // calculate link size
-                const s = 1.0 / 255.0;
                 let lmin = left[0] + (right[0] - left[0]) * (link.bmin * s);
                 let lmax = left[0] + (right[0] - left[0]) * (link.bmax * s);
                 if (lmin > lmax) [lmin, lmax] = [lmax, lmin];
@@ -1550,6 +1537,19 @@ const raycastBase = (
                 // find X intersection
                 const x = startPosition[0] + (endPosition[0] - startPosition[0]) * intersectSegmentPoly2DResult.tmax;
                 if (x >= lmin && x <= lmax) {
+                    nextRef = link.toNodeRef;
+                    break;
+                }
+            } else if (link.side === 2 || link.side === 6) {
+                // calculate link size
+                const s = 1.0 / 255.0;
+                let lmin = left[1] + (right[1] - left[1]) * (link.bmin * s);
+                let lmax = left[1] + (right[1] - left[1]) * (link.bmax * s);
+                if (lmin > lmax) [lmin, lmax] = [lmax, lmin];
+
+                // find Y intersection
+                const y = startPosition[1] + (endPosition[1] - startPosition[1]) * intersectSegmentPoly2DResult.tmax;
+                if (y >= lmin && y <= lmax) {
                     nextRef = link.toNodeRef;
                     break;
                 }
@@ -1566,11 +1566,11 @@ const raycastBase = (
                     intersectSegmentPoly2DResult.segMax + 1 < poly.vertices.length ? intersectSegmentPoly2DResult.segMax + 1 : 0;
                 vec3.fromBuffer(_raycast_hitNormal_va, vertices, a * 3);
                 vec3.fromBuffer(_raycast_hitNormal_vb, vertices, b * 3);
+                const dy = _raycast_hitNormal_vb[1] - _raycast_hitNormal_va[1];
                 const dx = _raycast_hitNormal_vb[0] - _raycast_hitNormal_va[0];
-                const dz = _raycast_hitNormal_vb[2] - _raycast_hitNormal_va[2];
-                result.hitNormal[0] = dz;
-                result.hitNormal[1] = 0;
-                result.hitNormal[2] = -dx;
+                result.hitNormal[1] = dx;
+                result.hitNormal[2] = 0;
+                result.hitNormal[0] = -dy;
                 vec3.normalize(result.hitNormal, result.hitNormal);
             }
 
@@ -1606,11 +1606,11 @@ const raycastBase = (
 
             // use squared comparison to determine which component to use
             const s =
-                _raycast_eDir[0] * _raycast_eDir[0] > _raycast_eDir[2] * _raycast_eDir[2]
-                    ? _raycast_diff[0] / _raycast_eDir[0]
-                    : _raycast_diff[2] / _raycast_eDir[2];
+                _raycast_eDir[1] * _raycast_eDir[1] > _raycast_eDir[0] * _raycast_eDir[0]
+                    ? _raycast_diff[1] / _raycast_eDir[1]
+                    : _raycast_diff[0] / _raycast_eDir[0];
 
-            _raycast_curPos[1] = _raycast_e0Vec[1] + _raycast_eDir[1] * s;
+            _raycast_curPos[2] = _raycast_e0Vec[2] + _raycast_eDir[2] * s;
 
             // accumulate cost
             result.pathCost += filter.getCost(_raycast_lastPos, _raycast_curPos, navMesh, prevRefTracking, curRef, nextRef);
@@ -1629,7 +1629,7 @@ const raycastBase = (
  * the start position toward the end position.
  *
  * This method is meant to be used for quick, short distance checks.
- * The raycast ignores the y-value of the end position (2D check).
+ * The raycast ignores the z-value of the end position (2D check).
  *
  * @param navMesh The navigation mesh to use for the raycast.
  * @param startNodeRef The NodeRef for the start polygon
@@ -1653,7 +1653,7 @@ export const raycast = (
  * the start position toward the end position, calculating accumulated path costs.
  *
  * This method is meant to be used for quick, short distance checks.
- * The raycast ignores the y-value of the end position (2D check).
+ * The raycast ignores the z-value of the end position (2D check).
  *
  * @param navMesh The navigation mesh to use for the raycast.
  * @param startNodeRef The NodeRef for the start polygon
@@ -1764,9 +1764,9 @@ export const findRandomPoint = (navMesh: NavMesh, filter: QueryFilter, rand: () 
     const vertices = _findRandomPointVertices;
     for (let j = 0; j < nv; j++) {
         const start = selectedPoly.vertices[j] * 3;
-        vertices[j * 3] = selectedTile.vertices[start];
         vertices[j * 3 + 1] = selectedTile.vertices[start + 1];
         vertices[j * 3 + 2] = selectedTile.vertices[start + 2];
+        vertices[j * 3] = selectedTile.vertices[start];
     }
 
     const s = rand();

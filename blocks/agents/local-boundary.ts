@@ -1,6 +1,6 @@
 import type { Vec3 } from 'mathcat';
 import { vec3 } from 'mathcat';
-import { findLocalNeighbourhood, getPolyWallSegments, isValidNodeRef, type NavMesh, type NodeRef, type QueryFilter } from 'navcat';
+import { findLocalNeighbourhood, getPolyWallSegments, isValidNodeRef, type NavMesh, type NodeRef, type QueryFilter } from 'navcat-zup';
 
 const MAX_LOCAL_SEGS = 8;
 const MAX_LOCAL_POLYS = 16;
@@ -40,27 +40,27 @@ export const resetLocalBoundary = (boundary: LocalBoundary): void => {
 };
 
 /**
- * Calculates distance squared from point to line segment in 2D (XZ plane).
+ * Calculates distance squared from point to line segment in 2D (XY plane).
  */
 const distancePtSegSqr2d = (pt: Vec3, segStart: Vec3, segEnd: Vec3): number => {
+    const pqy = segEnd[1] - segStart[1];
     const pqx = segEnd[0] - segStart[0];
-    const pqz = segEnd[2] - segStart[2];
+    const dy = pt[1] - segStart[1];
     const dx = pt[0] - segStart[0];
-    const dz = pt[2] - segStart[2];
 
-    const d = pqx * pqx + pqz * pqz;
-    let t = pqx * dx + pqz * dz;
+    const d = pqy * pqy + pqx * pqx;
+    let t = pqy * dy + pqx * dx;
     if (d > 0) t /= d;
     if (t < 0) t = 0;
     else if (t > 1) t = 1;
 
+    const nearestY = segStart[1] + t * pqy;
     const nearestX = segStart[0] + t * pqx;
-    const nearestZ = segStart[2] + t * pqz;
 
+    const distY = pt[1] - nearestY;
     const distX = pt[0] - nearestX;
-    const distZ = pt[2] - nearestZ;
 
-    return distX * distX + distZ * distZ;
+    return distY * distY + distX * distX;
 };
 
 /**

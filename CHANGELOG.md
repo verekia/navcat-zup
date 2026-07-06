@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## navcat-zup fork
+
+- **navcat-zup** is a fork of [navcat](https://github.com/isaac-mason/navcat) converted from a Y-up to a **Z-up** coordinate system
+- The entire library — generation, queries, crowd simulation, debug helpers, and the three.js entrypoint — now uses a right-handed, Z-up coordinate system: the ground plane is XY and +Z is up
+- The conversion is a pure axis rotation (old X → new Y, old Y → new Z, old Z → new X), so handedness, winding conventions, and all algorithm behaviour are preserved exactly; z-up outputs are bit-identical rotations of the original y-up outputs
+- Input triangle winding: floor triangles should wind counter-clockwise when viewed from above (+Z), giving a +Z normal
+- Package renamed from `navcat` to `navcat-zup` (entrypoints: `navcat-zup`, `navcat-zup/blocks`, `navcat-zup/three`)
+- Versions below track the upstream navcat releases this fork is based on
+
 ## 0.4.1
 
 - fix: reorder 'types' and 'import' in package.json 'exports'

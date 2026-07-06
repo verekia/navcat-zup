@@ -26,7 +26,7 @@ describe('heightfield', () => {
         });
 
         test('handles non-uniform bounds correctly', () => {
-            const bounds: Box3 = [-5, 0, -5, 15, 10, 5];
+            const bounds: Box3 = [-5, -5, 0, 5, 15, 10];
             const cellSize = 0.5;
             const outGridSize = vec2.create();
 
@@ -37,7 +37,7 @@ describe('heightfield', () => {
         });
 
         test('rounds correctly with fractional cell sizes', () => {
-            const bounds: Box3 = [0, 0, 0, 10.3, 5, 10.7];
+            const bounds: Box3 = [0, 0, 0, 10.7, 10.3, 5];
             const cellSize = 1.0;
             const outGridSize = vec2.create();
 
@@ -52,7 +52,7 @@ describe('heightfield', () => {
         test('creates heightfield with correct dimensions', () => {
             const width = 10;
             const height = 20;
-            const bounds: Box3 = [0, 0, 0, 10, 5, 20];
+            const bounds: Box3 = [0, 0, 0, 20, 10, 5];
             const cellSize = 1.0;
             const cellHeight = 0.5;
 
@@ -78,7 +78,7 @@ describe('heightfield', () => {
         });
 
         test('stores bounds and cell parameters correctly', () => {
-            const bounds: Box3 = [0, 0, 0, 10, 5, 20];
+            const bounds: Box3 = [0, 0, 0, 20, 10, 5];
             const cellSize = 1.0;
             const cellHeight = 0.5;
 
@@ -272,17 +272,17 @@ describe('heightfield', () => {
             const bounds: Box3 = [0, 0, 0, 10, 10, 10];
             const heightfield = createHeightfield(10, 10, bounds, 1.0, 1.0);
 
-            // Horizontal triangle at y=2
+            // Horizontal triangle at z=2
             const vertices = [
                 2,
                 2,
                 2, // v0
+                2,
                 4,
-                2,
                 2, // v1
+                4,
                 3,
-                2,
-                4, // v2
+                2, // v2
             ];
             const indices = [0, 1, 2];
             const triAreaIds = [1];
@@ -306,14 +306,14 @@ describe('heightfield', () => {
             // Vertical triangle
             const vertices = [
                 2,
-                0,
-                2, // v0
+                2,
+                0, // v0
+                2,
                 4,
-                5,
-                2, // v1
+                5, // v1
+                4,
                 3,
-                0,
-                4, // v2
+                0, // v2
             ];
             const indices = [0, 1, 2];
             const triAreaIds = [1];
@@ -334,7 +334,7 @@ describe('heightfield', () => {
             const heightfield = createHeightfield(10, 10, bounds, 1.0, 1.0);
 
             // Triangle completely outside bounds
-            const vertices = [20, 2, 20, 22, 2, 20, 21, 2, 22];
+            const vertices = [20, 20, 2, 20, 22, 2, 22, 21, 2];
             const indices = [0, 1, 2];
             const triAreaIds = [1];
 
@@ -355,14 +355,14 @@ describe('heightfield', () => {
             // Triangle partially outside
             const vertices = [
                 8,
+                8,
                 2,
                 8,
                 12,
-                2,
-                8, // This vertex is outside
+                2, // This vertex is outside
+                12,
                 10,
-                2,
-                12, // This vertex is outside
+                2, // This vertex is outside
             ];
             const indices = [0, 1, 2];
             const triAreaIds = [1];
@@ -384,7 +384,7 @@ describe('heightfield', () => {
             const heightfield = createHeightfield(10, 10, bounds, 1.0, 1.0);
 
             // Triangle at boundary
-            const vertices = [0, 2, 0, 2, 2, 0, 1, 2, 2];
+            const vertices = [0, 0, 2, 0, 2, 2, 2, 1, 2];
             const indices = [0, 1, 2];
             const triAreaIds = [1];
 
@@ -399,7 +399,7 @@ describe('heightfield', () => {
             const heightfield = createHeightfield(10, 10, bounds, 1.0, 1.0);
 
             // Two overlapping triangles at different heights
-            const vertices = [2, 2, 2, 4, 2, 2, 3, 2, 4, 2, 5, 2, 4, 5, 2, 3, 5, 4];
+            const vertices = [2, 2, 2, 2, 4, 2, 4, 3, 2, 2, 2, 5, 2, 4, 5, 4, 3, 5];
             const indices = [0, 1, 2, 3, 4, 5];
             const triAreaIds = [1, 2];
 
@@ -420,7 +420,7 @@ describe('heightfield', () => {
             const heightfield = createHeightfield(10, 10, bounds, 1.0, 1.0);
 
             // Degenerate triangle (all points colinear)
-            const vertices = [2, 2, 2, 3, 2, 2, 4, 2, 2];
+            const vertices = [2, 2, 2, 2, 3, 2, 2, 4, 2];
             const indices = [0, 1, 2];
             const triAreaIds = [1];
 
@@ -434,7 +434,7 @@ describe('heightfield', () => {
             const bounds: Box3 = [0, 0, 0, 10, 10, 10];
             const heightfield = createHeightfield(10, 10, bounds, 1.0, 1.0);
 
-            const vertices = [2, 2.0, 2, 4, 2.0, 2, 3, 2.0, 4, 2, 2.5, 2, 4, 2.5, 2, 3, 2.5, 4];
+            const vertices = [2, 2, 2.0, 2, 4, 2.0, 4, 3, 2.0, 2, 2, 2.5, 2, 4, 2.5, 4, 3, 2.5];
             const indices = [0, 1, 2, 3, 4, 5];
             const triAreaIds = [5, 10]; // Different area IDs
 
@@ -451,7 +451,7 @@ describe('heightfield', () => {
             const heightfield = createHeightfield(10, 10, bounds, 1.0, 1.0);
 
             // Large triangle spanning many cells
-            const vertices = [1, 2, 1, 8, 2, 1, 4, 2, 8];
+            const vertices = [1, 1, 2, 1, 8, 2, 8, 4, 2];
             const indices = [0, 1, 2];
             const triAreaIds = [1];
 

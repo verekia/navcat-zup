@@ -1,7 +1,7 @@
 import { circle, circumcircle, clamp, type Vec2, type Vec3, vec2, vec3 } from 'mathcat';
 import { distancePtSeg, distToPoly, distToTriMesh, overlapSegSeg2d, polyMinExtent } from '../geometry';
 import { BuildContext, type BuildContextState } from './build-context';
-import { getDirForOffset, getDirOffsetX, getDirOffsetY, MESH_NULL_IDX, MULTIPLE_REGS, NOT_CONNECTED } from './common';
+import { getDirForOffset, getDirOffsetY, getDirOffsetX, MESH_NULL_IDX, MULTIPLE_REGS, NOT_CONNECTED } from './common';
 import type { CompactHeightfield } from './compact-heightfield';
 import { getCon } from './compact-heightfield';
 import type { PolyMesh } from './poly-mesh';
@@ -40,25 +40,25 @@ const EV_HULL = -2;
 // Height patch structure
 type HeightPatch = {
     data: number[];
-    xmin: number;
     ymin: number;
+    xmin: number;
     width: number;
     height: number;
 };
 
-// Helper to extract 2D vector from 3D array (x, z components)
-const getVec2XZ = (out: Vec2, arr: number[], index = 0): Vec2 => {
-    out[0] = arr[index]; // x component
-    out[1] = arr[index + 2]; // z component (skip y)
+// Helper to extract 2D vector from 3D array (y, x components)
+const getVec2XY = (out: Vec2, arr: number[], index = 0): Vec2 => {
+    out[0] = arr[index + 1]; // y component
+    out[1] = arr[index]; // x component (skip z)
     return out;
 };
 
 // Jitter functions for sampling
-const getJitterX = (i: number): number => {
+const getJitterY = (i: number): number => {
     return (((i * 0x8da6b343) & 0xffff) / 65535.0) * 2.0 - 1.0;
 };
 
-const getJitterY = (i: number): number => {
+const getJitterX = (i: number): number => {
     return (((i * 0xd8163841) & 0xffff) / 65535.0) * 2.0 - 1.0;
 };
 
@@ -68,29 +68,29 @@ const next = (i: number, n: number): number => (i + 1 < n ? i + 1 : 0);
 
 // Height sampling function with spiral search
 const getHeight = (
-    fx: number,
     fy: number,
     fz: number,
+    fx: number,
     _cs: number,
     ics: number,
     ch: number,
     radius: number,
     hp: HeightPatch,
 ): number => {
+    let iy = Math.floor(fy * ics + 0.01);
     let ix = Math.floor(fx * ics + 0.01);
-    let iz = Math.floor(fz * ics + 0.01);
-    ix = clamp(ix - hp.xmin, 0, hp.width - 1);
-    iz = clamp(iz - hp.ymin, 0, hp.height - 1);
-    let h = hp.data[ix + iz * hp.width];
+    iy = clamp(iy - hp.ymin, 0, hp.width - 1);
+    ix = clamp(ix - hp.xmin, 0, hp.height - 1);
+    let h = hp.data[iy + ix * hp.width];
 
     if (h === UNSET_HEIGHT) {
         // Special case when data might be bad.
         // Walk adjacent cells in a spiral up to 'radius', and look
         // for a pixel which has a valid height.
-        let x = 1;
-        let z = 0;
-        let dx = 1;
-        let dz = 0;
+        let y = 1;
+        let x = 0;
+        let dy = 1;
+        let dx = 0;
         const maxSize = radius * 2 + 1;
         const maxIter = maxSize * maxSize - 1;
 
@@ -99,13 +99,13 @@ const getHeight = (
 
         let dmin = Number.MAX_VALUE;
         for (let i = 0; i < maxIter; i++) {
+            const ny = iy + y;
             const nx = ix + x;
-            const nz = iz + z;
 
-            if (nx >= 0 && nz >= 0 && nx < hp.width && nz < hp.height) {
-                const nh = hp.data[nx + nz * hp.width];
+            if (ny >= 0 && nx >= 0 && ny < hp.width && nx < hp.height) {
+                const nh = hp.data[ny + nx * hp.width];
                 if (nh !== UNSET_HEIGHT) {
-                    const d = Math.abs(nh * ch - fy);
+                    const d = Math.abs(nh * ch - fz);
                     if (d < dmin) {
                         h = nh;
                         dmin = d;
@@ -137,13 +137,13 @@ const getHeight = (
                 nextRingIters += 8;
             }
 
-            if (x === z || (x < 0 && x === -z) || (x > 0 && x === 1 - z)) {
-                const tmp = dx;
-                dx = -dz;
-                dz = tmp;
+            if (y === x || (y < 0 && y === -x) || (y > 0 && y === 1 - x)) {
+                const tmp = dy;
+                dy = -dx;
+                dx = tmp;
             }
+            y += dy;
             x += dx;
-            z += dz;
         }
     }
     return h;
@@ -237,9 +237,9 @@ const completeFacet = (
     for (let u = 0; u < nPoints; ++u) {
         if (u === s || u === t) continue;
         // Calculate cross product to check if points are in correct order for triangle
-        getVec2XZ(_completeFacetPointS, points, s * 3);
-        getVec2XZ(_completeFacetPointT, points, t * 3);
-        getVec2XZ(_completeFacetPointU, points, u * 3);
+        getVec2XY(_completeFacetPointS, points, s * 3);
+        getVec2XY(_completeFacetPointT, points, t * 3);
+        getVec2XY(_completeFacetPointU, points, u * 3);
         vec2.subtract(_completeFacetPointT, _completeFacetPointT, _completeFacetPointS); // t - s
         vec2.subtract(_completeFacetPointU, _completeFacetPointU, _completeFacetPointS); // u - s
         const crossProduct =
@@ -250,22 +250,22 @@ const completeFacet = (
                 // The circle is not updated yet, do it now.
                 pt = u;
 
-                getVec2XZ(_triangleV1, points, s * 3);
-                getVec2XZ(_triangleV2, points, t * 3);
-                getVec2XZ(_triangleV3, points, u * 3);
+                getVec2XY(_triangleV1, points, s * 3);
+                getVec2XY(_triangleV2, points, t * 3);
+                getVec2XY(_triangleV3, points, u * 3);
 
                 circumcircle(_circumcircleResult, _triangleV1, _triangleV2, _triangleV3);
 
-                c[0] = _circumcircleResult.center[0];
-                c[1] = 0;
-                c[2] = _circumcircleResult.center[1];
+                c[1] = _circumcircleResult.center[0];
+                c[2] = 0;
+                c[0] = _circumcircleResult.center[1];
 
                 r = _circumcircleResult.radius;
 
                 continue;
             }
-            getVec2XZ(_completeFacetCircleCenter, c, 0);
-            getVec2XZ(_completeFacetDistanceCalc, points, u * 3);
+            getVec2XY(_completeFacetCircleCenter, c, 0);
+            getVec2XY(_completeFacetDistanceCalc, points, u * 3);
             const d = vec2.distance(_completeFacetCircleCenter, _completeFacetDistanceCalc);
             const tol = 0.001;
 
@@ -283,15 +283,15 @@ const completeFacet = (
             // Edge is valid.
             pt = u;
 
-            getVec2XZ(_triangleV1, points, s * 3);
-            getVec2XZ(_triangleV2, points, t * 3);
-            getVec2XZ(_triangleV3, points, u * 3);
+            getVec2XY(_triangleV1, points, s * 3);
+            getVec2XY(_triangleV2, points, t * 3);
+            getVec2XY(_triangleV3, points, u * 3);
 
             circumcircle(_circumcircleResult, _triangleV1, _triangleV2, _triangleV3);
 
-            c[0] = _circumcircleResult.center[0];
-            c[1] = 0;
-            c[2] = _circumcircleResult.center[1];
+            c[1] = _circumcircleResult.center[0];
+            c[2] = 0;
+            c[0] = _circumcircleResult.center[1];
 
             r = _circumcircleResult.radius;
         }
@@ -344,10 +344,10 @@ const overlapEdges = (pts: number[], edges: number[], nedges: number, s1: number
         const t0 = edges[i * 4 + 1];
         // Same or connected edges do not overlap.
         if (s0 === s1 || s0 === t1 || t0 === s1 || t0 === t1) continue;
-        getVec2XZ(_overlapEdgesS0, pts, s0 * 3);
-        getVec2XZ(_overlapEdgesT0, pts, t0 * 3);
-        getVec2XZ(_overlapEdgesS1, pts, s1 * 3);
-        getVec2XZ(_overlapEdgesT1, pts, t1 * 3);
+        getVec2XY(_overlapEdgesS0, pts, s0 * 3);
+        getVec2XY(_overlapEdgesT0, pts, t0 * 3);
+        getVec2XY(_overlapEdgesS1, pts, s1 * 3);
+        getVec2XY(_overlapEdgesT1, pts, t1 * 3);
         if (overlapSegSeg2d(_overlapEdgesS0, _overlapEdgesT0, _overlapEdgesS1, _overlapEdgesT1)) return true;
     }
     return false;
@@ -449,9 +449,9 @@ const triangulateHull = (verts: number[], nhull: number, hull: number[], nin: nu
         const cv = hull[i] * 3;
         const nv = hull[ni] * 3;
         // Calculate triangle perimeter using 2D distances
-        getVec2XZ(_triangulateHullPrev, verts, pv);
-        getVec2XZ(_triangulateHullCurrent, verts, cv);
-        getVec2XZ(_triangulateHullNext, verts, nv);
+        getVec2XY(_triangulateHullPrev, verts, pv);
+        getVec2XY(_triangulateHullCurrent, verts, cv);
+        getVec2XY(_triangulateHullNext, verts, nv);
 
         const d =
             vec2.distance(_triangulateHullPrev, _triangulateHullCurrent) +
@@ -482,10 +482,10 @@ const triangulateHull = (verts: number[], nhull: number, hull: number[], nin: nu
         const cvright = hull[right] * 3;
         const nvright = hull[nright] * 3;
         // Calculate distances for left and right triangulation options
-        getVec2XZ(_triangulateHullPrev, verts, cvleft);
-        getVec2XZ(_triangulateHullCurrent, verts, nvleft);
-        getVec2XZ(_triangulateHullNext, verts, cvright);
-        getVec2XZ(_triangulateHullRight, verts, nvright);
+        getVec2XY(_triangulateHullPrev, verts, cvleft);
+        getVec2XY(_triangulateHullCurrent, verts, nvleft);
+        getVec2XY(_triangulateHullNext, verts, cvright);
+        getVec2XY(_triangulateHullRight, verts, nvright);
 
         const dleft =
             vec2.distance(_triangulateHullPrev, _triangulateHullCurrent) +
@@ -565,25 +565,25 @@ const seedArrayWithPolyCenter = (
     const offset = SEED_ARRAY_WITH_POLY_CENTER_OFFSET;
 
     // Find cell closest to a poly vertex
-    let startCellX = 0;
     let startCellY = 0;
+    let startCellX = 0;
     let startSpanIndex = -1;
     let dmin = UNSET_HEIGHT;
 
     for (let j = 0; j < nPolys && dmin > 0; ++j) {
         for (let k = 0; k < 9 && dmin > 0; ++k) {
-            const ax = verts[poly[polyStart + j] * 3] + offset[k][0];
-            const ay = verts[poly[polyStart + j] * 3 + 1];
-            const az = verts[poly[polyStart + j] * 3 + 2] + offset[k][1];
-            if (ax < hp.xmin || ax >= hp.xmin + hp.width || az < hp.ymin || az >= hp.ymin + hp.height) continue;
+            const ay = verts[poly[polyStart + j] * 3 + 1] + offset[k][0];
+            const az = verts[poly[polyStart + j] * 3 + 2];
+            const ax = verts[poly[polyStart + j] * 3] + offset[k][1];
+            if (ay < hp.ymin || ay >= hp.ymin + hp.width || ax < hp.xmin || ax >= hp.xmin + hp.height) continue;
 
-            const c = chf.cells[ax + bs + (az + bs) * chf.width];
+            const c = chf.cells[ay + bs + (ax + bs) * chf.width];
             for (let i = c.index, ni = c.index + c.count; i < ni && dmin > 0; ++i) {
                 const s = chf.spans[i];
-                const d = Math.abs(ay - s.y);
+                const d = Math.abs(az - s.z);
                 if (d < dmin) {
+                    startCellY = ay;
                     startCellX = ax;
-                    startCellY = az;
                     startSpanIndex = i;
                     dmin = d;
                 }
@@ -592,18 +592,18 @@ const seedArrayWithPolyCenter = (
     }
 
     // Find center of the polygon
-    let pcx = 0;
     let pcy = 0;
+    let pcx = 0;
     for (let j = 0; j < nPolys; ++j) {
+        pcy += verts[poly[polyStart + j] * 3 + 1];
         pcx += verts[poly[polyStart + j] * 3];
-        pcy += verts[poly[polyStart + j] * 3 + 2];
     }
-    pcx = Math.floor(pcx / nPolys);
     pcy = Math.floor(pcy / nPolys);
+    pcx = Math.floor(pcx / nPolys);
 
     // Use seeds array as a stack for DFS
     array.length = 0;
-    array.push(startCellX, startCellY, startSpanIndex);
+    array.push(startCellY, startCellX, startSpanIndex);
 
     const dirs = [0, 1, 2, 3];
     hp.data.fill(0);
@@ -612,8 +612,8 @@ const seedArrayWithPolyCenter = (
     // directly towards the center without recording intermediate nodes, even though the polygons
     // are convex. In very rare we can get stuck due to contour simplification if we do not
     // record nodes.
-    let cx = -1;
     let cy = -1;
+    let cx = -1;
     let ci = -1;
     while (true) {
         if (array.length < 3) {
@@ -622,19 +622,19 @@ const seedArrayWithPolyCenter = (
         }
 
         ci = array.pop()!;
-        cy = array.pop()!;
         cx = array.pop()!;
+        cy = array.pop()!;
 
-        if (cx === pcx && cy === pcy) break;
+        if (cy === pcy && cx === pcx) break;
 
-        // If we are already at the correct X-position, prefer direction
-        // directly towards the center in the Y-axis; otherwise prefer
-        // direction in the X-axis
+        // If we are already at the correct Y-position, prefer direction
+        // directly towards the center in the X-axis; otherwise prefer
+        // direction in the Y-axis
         let directDir: number;
-        if (cx === pcx) {
-            directDir = getDirForOffset(0, pcy > cy ? 1 : -1);
+        if (cy === pcy) {
+            directDir = getDirForOffset(0, pcx > cx ? 1 : -1);
         } else {
-            directDir = getDirForOffset(pcx > cx ? 1 : -1, 0);
+            directDir = getDirForOffset(pcy > cy ? 1 : -1, 0);
         }
 
         // Push the direct dir last so we start with this on next iteration
@@ -647,17 +647,17 @@ const seedArrayWithPolyCenter = (
             const dir = dirs[i];
             if (getCon(cs, dir) === NOT_CONNECTED) continue;
 
-            const newX = cx + getDirOffsetX(dir);
             const newY = cy + getDirOffsetY(dir);
+            const newX = cx + getDirOffsetX(dir);
 
-            const hpx = newX - hp.xmin;
             const hpy = newY - hp.ymin;
-            if (hpx < 0 || hpx >= hp.width || hpy < 0 || hpy >= hp.height) continue;
+            const hpx = newX - hp.xmin;
+            if (hpy < 0 || hpy >= hp.width || hpx < 0 || hpx >= hp.height) continue;
 
-            if (hp.data[hpx + hpy * hp.width] !== 0) continue;
+            if (hp.data[hpy + hpx * hp.width] !== 0) continue;
 
-            hp.data[hpx + hpy * hp.width] = 1;
-            array.push(newX, newY, chf.cells[newX + bs + (newY + bs) * chf.width].index + getCon(cs, dir));
+            hp.data[hpy + hpx * hp.width] = 1;
+            array.push(newY, newX, chf.cells[newY + bs + (newX + bs) * chf.width].index + getCon(cs, dir));
         }
 
         // restore dirs array
@@ -669,11 +669,11 @@ const seedArrayWithPolyCenter = (
     array.length = 0;
 
     // getHeightData seeds are given in coordinates with borders
-    array.push(cx + bs, cy + bs, ci);
+    array.push(cy + bs, cx + bs, ci);
 
     hp.data.fill(UNSET_HEIGHT);
     const cs = chf.spans[ci];
-    hp.data[cx - hp.xmin + (cy - hp.ymin) * hp.width] = cs.y;
+    hp.data[cy - hp.ymin + (cx - hp.xmin) * hp.width] = cs.z;
 };
 
 // Get height data for a polygon
@@ -701,25 +701,25 @@ const getHeightData = (
     // We cannot sample from this poly if it was created from polys of different regions.
     if (region !== MULTIPLE_REGS) {
         // Copy the height from the same region, and mark region borders as seed points to fill the rest.
-        for (let hy = 0; hy < hp.height; hy++) {
-            const y = hp.ymin + hy + bs;
-            for (let hx = 0; hx < hp.width; hx++) {
-                const x = hp.xmin + hx + bs;
-                const c = chf.cells[x + y * chf.width];
+        for (let hx = 0; hx < hp.height; hx++) {
+            const x = hp.xmin + hx + bs;
+            for (let hy = 0; hy < hp.width; hy++) {
+                const y = hp.ymin + hy + bs;
+                const c = chf.cells[y + x * chf.width];
                 for (let i = c.index, ni = c.index + c.count; i < ni; ++i) {
                     const s = chf.spans[i];
                     if (s.region === region) {
                         // Store height
-                        hp.data[hx + hy * hp.width] = s.y;
+                        hp.data[hy + hx * hp.width] = s.z;
                         empty = false;
 
                         // If any of the neighbours is not in same region, add the current location as flood fill start
                         let border = false;
                         for (let dir = 0; dir < 4; ++dir) {
                             if (getCon(s, dir) !== NOT_CONNECTED) {
-                                const ax = x + getDirOffsetX(dir);
                                 const ay = y + getDirOffsetY(dir);
-                                const ai = chf.cells[ax + ay * chf.width].index + getCon(s, dir);
+                                const ax = x + getDirOffsetX(dir);
+                                const ai = chf.cells[ay + ax * chf.width].index + getCon(s, dir);
                                 const as = chf.spans[ai];
                                 if (as.region !== region) {
                                     border = true;
@@ -727,7 +727,7 @@ const getHeightData = (
                                 }
                             }
                         }
-                        if (border) queue.push(x, y, i);
+                        if (border) queue.push(y, x, i);
                         break;
                     }
                 }
@@ -744,8 +744,8 @@ const getHeightData = (
 
     // BFS to collect height data
     while (head * 3 < queue.length) {
-        const cx = queue[head * 3];
-        const cy = queue[head * 3 + 1];
+        const cy = queue[head * 3];
+        const cx = queue[head * 3 + 1];
         const ci = queue[head * 3 + 2];
         head++;
 
@@ -758,21 +758,21 @@ const getHeightData = (
         for (let dir = 0; dir < 4; ++dir) {
             if (getCon(cs, dir) === NOT_CONNECTED) continue;
 
-            const ax = cx + getDirOffsetX(dir);
             const ay = cy + getDirOffsetY(dir);
-            const hx = ax - hp.xmin - bs;
+            const ax = cx + getDirOffsetX(dir);
             const hy = ay - hp.ymin - bs;
+            const hx = ax - hp.xmin - bs;
 
-            if (hx < 0 || hx >= hp.width || hy < 0 || hy >= hp.height) continue;
+            if (hy < 0 || hy >= hp.width || hx < 0 || hx >= hp.height) continue;
 
-            if (hp.data[hx + hy * hp.width] !== UNSET_HEIGHT) continue;
+            if (hp.data[hy + hx * hp.width] !== UNSET_HEIGHT) continue;
 
-            const ai = chf.cells[ax + ay * chf.width].index + getCon(cs, dir);
+            const ai = chf.cells[ay + ax * chf.width].index + getCon(cs, dir);
             const as = chf.spans[ai];
 
-            hp.data[hx + hy * hp.width] = as.y;
+            hp.data[hy + hx * hp.width] = as.z;
 
-            queue.push(ax, ay, ai);
+            queue.push(ay, ax, ai);
         }
     }
 };
@@ -810,9 +810,9 @@ const buildPolyDetail = (
 
     // Copy input vertices
     for (let i = 0; i < nin; ++i) {
-        verts[i * 3] = inVerts[i * 3];
         verts[i * 3 + 1] = inVerts[i * 3 + 1];
         verts[i * 3 + 2] = inVerts[i * 3 + 2];
+        verts[i * 3] = inVerts[i * 3];
     }
 
     // Clear arrays
@@ -836,8 +836,8 @@ const buildPolyDetail = (
 
             // Make sure the segments are always handled in same order
             // using lexological sort or else there will be seams.
-            if (Math.abs(inVerts[vjStart] - inVerts[viStart]) < 1e-6) {
-                if (inVerts[vjStart + 2] > inVerts[viStart + 2]) {
+            if (Math.abs(inVerts[vjStart + 1] - inVerts[viStart + 1]) < 1e-6) {
+                if (inVerts[vjStart] > inVerts[viStart]) {
                     const tmp = viStart;
                     viStart = vjStart;
                     vjStart = tmp;
@@ -845,7 +845,7 @@ const buildPolyDetail = (
                     swapped = true;
                 }
             } else {
-                if (inVerts[vjStart] > inVerts[viStart]) {
+                if (inVerts[vjStart + 1] > inVerts[viStart + 1]) {
                     const tmp = viStart;
                     viStart = vjStart;
                     vjStart = tmp;
@@ -858,10 +858,10 @@ const buildPolyDetail = (
             const vi = vec3.fromBuffer(_buildPolyDetail_vi, inVerts, viStart);
 
             // Create samples along the edge.
-            const dx = vi[0] - vj[0];
             const dy = vi[1] - vj[1];
             const dz = vi[2] - vj[2];
-            const d = Math.sqrt(dx * dx + dz * dz);
+            const dx = vi[0] - vj[0];
+            const d = Math.sqrt(dy * dy + dx * dx);
             let nn = 1 + Math.floor(d / sampleDist);
             if (nn >= MAX_VERTS_PER_EDGE) nn = MAX_VERTS_PER_EDGE - 1;
             if (nverts + nn >= MAX_VERTS) nn = MAX_VERTS - 1 - nverts;
@@ -869,11 +869,11 @@ const buildPolyDetail = (
             for (let k = 0; k <= nn; ++k) {
                 const u = k / nn;
                 const pos = k * 3;
-                edge[pos] = vj[0] + dx * u;
                 edge[pos + 1] = vj[1] + dy * u;
                 edge[pos + 2] = vj[2] + dz * u;
-                edge[pos + 1] =
-                    getHeight(edge[pos], edge[pos + 1], edge[pos + 2], cs, ics, chf.cellHeight, heightSearchRadius, hp) *
+                edge[pos] = vj[0] + dx * u;
+                edge[pos + 2] =
+                    getHeight(edge[pos + 1], edge[pos + 2], edge[pos], cs, ics, chf.cellHeight, heightSearchRadius, hp) *
                     chf.cellHeight;
             }
 
@@ -962,27 +962,27 @@ const buildPolyDetail = (
         const bmin = vec3.set(_bmin, inVerts[0], inVerts[1], inVerts[2]);
         const bmax = vec3.set(_bmax, inVerts[0], inVerts[1], inVerts[2]);
         for (let i = 1; i < nin; ++i) {
-            bmin[0] = Math.min(bmin[0], inVerts[i * 3]);
             bmin[1] = Math.min(bmin[1], inVerts[i * 3 + 1]);
             bmin[2] = Math.min(bmin[2], inVerts[i * 3 + 2]);
-            bmax[0] = Math.max(bmax[0], inVerts[i * 3]);
+            bmin[0] = Math.min(bmin[0], inVerts[i * 3]);
             bmax[1] = Math.max(bmax[1], inVerts[i * 3 + 1]);
             bmax[2] = Math.max(bmax[2], inVerts[i * 3 + 2]);
+            bmax[0] = Math.max(bmax[0], inVerts[i * 3]);
         }
+        const y0 = Math.floor(bmin[1] / sampleDist);
+        const y1 = Math.ceil(bmax[1] / sampleDist);
         const x0 = Math.floor(bmin[0] / sampleDist);
         const x1 = Math.ceil(bmax[0] / sampleDist);
-        const z0 = Math.floor(bmin[2] / sampleDist);
-        const z1 = Math.ceil(bmax[2] / sampleDist);
         samples.length = 0;
-        for (let z = z0; z < z1; ++z) {
-            for (let x = x0; x < x1; ++x) {
-                const pt = [x * sampleDist, (bmax[1] + bmin[1]) * 0.5, z * sampleDist];
+        for (let x = x0; x < x1; ++x) {
+            for (let y = y0; y < y1; ++y) {
+                const pt = [x * sampleDist, y * sampleDist, (bmax[2] + bmin[2]) * 0.5];
                 // Make sure the samples are not too close to the edges.
                 vec3.set(_buildPolyDetailGridPt, pt[0], pt[1], pt[2]);
                 if (distToPoly(nin, inVerts, _buildPolyDetailGridPt) > -sampleDist / 2) continue;
+                samples.push(y);
+                samples.push(getHeight(pt[1], pt[2], pt[0], cs, ics, chf.cellHeight, heightSearchRadius, hp));
                 samples.push(x);
-                samples.push(getHeight(pt[0], pt[1], pt[2], cs, ics, chf.cellHeight, heightSearchRadius, hp));
-                samples.push(z);
                 samples.push(0); // Not added
             }
         }
@@ -1000,9 +1000,9 @@ const buildPolyDetail = (
                 const s = i * 4;
                 if (samples[s + 3]) continue; // skip added.
                 const pt = [
-                    samples[s] * sampleDist + getJitterX(i) * cs * 0.1,
+                    samples[s + 2] * sampleDist + getJitterX(i) * cs * 0.1,
+                    samples[s] * sampleDist + getJitterY(i) * cs * 0.1,
                     samples[s + 1] * chf.cellHeight,
-                    samples[s + 2] * sampleDist + getJitterY(i) * cs * 0.1,
                 ];
                 vec3.set(_buildPolyDetailSamplePt, pt[0], pt[1], pt[2]);
                 const d = distToTriMesh(_buildPolyDetailSamplePt, verts, tris, tris.length / 4);
@@ -1010,9 +1010,9 @@ const buildPolyDetail = (
                 if (d > bestd) {
                     bestd = d;
                     besti = i;
-                    bestpt[0] = pt[0];
                     bestpt[1] = pt[1];
                     bestpt[2] = pt[2];
+                    bestpt[0] = pt[0];
                 }
             }
             // If the max error is within accepted threshold, stop tesselating.
@@ -1074,8 +1074,8 @@ export const buildPolyMeshDetail = (
 
     const hp: HeightPatch = {
         data: [],
-        xmin: 0,
         ymin: 0,
+        xmin: 0,
         width: 0,
         height: 0,
     };
@@ -1090,22 +1090,22 @@ export const buildPolyMeshDetail = (
     // Find max size for a polygon area.
     for (let i = 0; i < polyMesh.nPolys; ++i) {
         const p = i * nvp;
-        let xmin = compactHeightfield.width;
-        let xmax = 0;
-        let ymin = compactHeightfield.height;
+        let ymin = compactHeightfield.width;
         let ymax = 0;
+        let xmin = compactHeightfield.height;
+        let xmax = 0;
         for (let j = 0; j < nvp; ++j) {
             if (polyMesh.polys[p + j] === MESH_NULL_IDX) break;
             const v = polyMesh.polys[p + j] * 3;
+            ymin = Math.min(ymin, polyMesh.vertices[v + 1]);
+            ymax = Math.max(ymax, polyMesh.vertices[v + 1]);
             xmin = Math.min(xmin, polyMesh.vertices[v]);
             xmax = Math.max(xmax, polyMesh.vertices[v]);
-            ymin = Math.min(ymin, polyMesh.vertices[v + 2]);
-            ymax = Math.max(ymax, polyMesh.vertices[v + 2]);
         }
-        bounds[i * 4] = Math.max(0, xmin - 1);
-        bounds[i * 4 + 1] = Math.min(compactHeightfield.width, xmax + 1);
-        bounds[i * 4 + 2] = Math.max(0, ymin - 1);
-        bounds[i * 4 + 3] = Math.min(compactHeightfield.height, ymax + 1);
+        bounds[i * 4] = Math.max(0, ymin - 1);
+        bounds[i * 4 + 1] = Math.min(compactHeightfield.width, ymax + 1);
+        bounds[i * 4 + 2] = Math.max(0, xmin - 1);
+        bounds[i * 4 + 3] = Math.min(compactHeightfield.height, xmax + 1);
         if (bounds[i * 4] >= bounds[i * 4 + 1] || bounds[i * 4 + 2] >= bounds[i * 4 + 3]) continue;
         maxhw = Math.max(maxhw, bounds[i * 4 + 1] - bounds[i * 4]);
         maxhh = Math.max(maxhh, bounds[i * 4 + 3] - bounds[i * 4 + 2]);
@@ -1136,15 +1136,15 @@ export const buildPolyMeshDetail = (
         for (let j = 0; j < nvp; ++j) {
             if (polyMesh.polys[p + j] === MESH_NULL_IDX) break;
             const v = polyMesh.polys[p + j] * 3;
+            poly[j * 3 + 1] = polyMesh.vertices[v + 1] * cs;
+            poly[j * 3 + 2] = polyMesh.vertices[v + 2] * ch;
             poly[j * 3] = polyMesh.vertices[v] * cs;
-            poly[j * 3 + 1] = polyMesh.vertices[v + 1] * ch;
-            poly[j * 3 + 2] = polyMesh.vertices[v + 2] * cs;
             npoly++;
         }
 
         // Get the height data from the area of the polygon.
-        hp.xmin = bounds[i * 4];
-        hp.ymin = bounds[i * 4 + 2];
+        hp.ymin = bounds[i * 4];
+        hp.xmin = bounds[i * 4 + 2];
         hp.width = bounds[i * 4 + 1] - bounds[i * 4];
         hp.height = bounds[i * 4 + 3] - bounds[i * 4 + 2];
         getHeightData(
@@ -1183,16 +1183,16 @@ export const buildPolyMeshDetail = (
 
         // Move detail verts to world space.
         for (let i = 0; i < verts.length; i += 3) {
+            verts[i + 1] += orig[1];
+            verts[i + 2] += orig[2] + compactHeightfield.cellHeight; // Is this offset necessary?
             verts[i] += orig[0];
-            verts[i + 1] += orig[1] + compactHeightfield.cellHeight; // Is this offset necessary?
-            verts[i + 2] += orig[2];
         }
 
         // Offset poly too, will be used to flag checking.
         for (let j = 0; j < npoly; ++j) {
-            poly[j * 3] += orig[0];
             poly[j * 3 + 1] += orig[1];
             poly[j * 3 + 2] += orig[2];
+            poly[j * 3] += orig[0];
         }
 
         // Store detail submesh.

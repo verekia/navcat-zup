@@ -3,33 +3,35 @@ export type ArrayLike<T> = {
     length: number;
 };
 
-// Direction offsets for 4-directional neighbor access (N, E, S, W)
+// Direction offsets for 4-directional neighbor access.
+// Each entry is [dy, dx]: the first value offsets the grid's first axis (world y),
+// the second value offsets the grid's second axis (world x).
 export const DIR_OFFSETS = [
-    // North (negative Z)
+    // negative Y
     [-1, 0],
-    // East (positive X)
+    // positive X
     [0, 1],
-    // South (positive Z)
+    // positive Y
     [1, 0],
-    // West (negative X)
+    // negative X
     [0, -1],
 ];
 
-export const getDirOffsetX = (dir: number): number => {
+export const getDirOffsetY = (dir: number): number => {
     return DIR_OFFSETS[dir & 0x03][0];
 };
 
-export const getDirOffsetY = (dir: number): number => {
+export const getDirOffsetX = (dir: number): number => {
     return DIR_OFFSETS[dir & 0x03][1];
 };
 
-export const getDirForOffset = (x: number, y: number): number => {
+export const getDirForOffset = (y: number, x: number): number => {
     for (let i = 0; i < DIR_OFFSETS.length; i++) {
-        if (DIR_OFFSETS[i][0] === x && DIR_OFFSETS[i][1] === y) {
+        if (DIR_OFFSETS[i][0] === y && DIR_OFFSETS[i][1] === x) {
             return i;
         }
     }
-    return 0; // Default to North if no match
+    return 0; // Default to first direction if no match
 };
 
 export const AXIS_X = 0;

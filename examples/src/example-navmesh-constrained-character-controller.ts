@@ -1,8 +1,8 @@
 import { GUI } from 'lil-gui';
 import type { Vec3 } from 'mathcat';
-import { createFindNearestPolyResult, DEFAULT_QUERY_FILTER, findNearestPoly, moveAlongSurface } from 'navcat';
-import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, getPositionsAndIndices } from 'navcat/three';
+import { createFindNearestPolyResult, DEFAULT_QUERY_FILTER, findNearestPoly, moveAlongSurface } from 'navcat-zup';
+import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { createExample } from './common/example-base';
 import { loadGLTF } from './common/load-gltf';
@@ -58,7 +58,7 @@ const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
 // Set up camera position
-camera.position.set(5, 8, 5);
+camera.position.set(5, 5, 8);
 camera.lookAt(0, 0, 0);
 
 // load level model
@@ -70,7 +70,7 @@ const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
 scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-directionalLight.position.set(5, 10, 7.5);
+directionalLight.position.set(7.5, 5, 10);
 scene.add(directionalLight);
 
 // character model
@@ -78,19 +78,21 @@ const characterModel = await loadGLTF('./models/character.glb');
 
 /* player setup */
 const playerGroup = new THREE.Group();
-playerGroup.position.set(0, 2, 0); // Start at a reasonable height
-playerGroup.rotation.y = 0; // Face forward
+playerGroup.position.set(0, 0, 2); // Start at a reasonable height
+playerGroup.rotation.z = 0; // Face forward
 scene.add(playerGroup);
 
 const characterScene = characterModel.scene;
 
 playerGroup.add(characterScene);
 
+const agentHelperGeometry = new THREE.CapsuleGeometry(guiSettings.walkableRadius, guiSettings.walkableHeight);
+agentHelperGeometry.rotateX(Math.PI / 2);
 const agentHelper = new THREE.Mesh(
-    new THREE.CapsuleGeometry(guiSettings.walkableRadius, guiSettings.walkableHeight),
+    agentHelperGeometry,
     new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true }),
 );
-agentHelper.position.y = 0.9;
+agentHelper.position.z = 0.9;
 playerGroup.add(agentHelper);
 
 const mixer = new THREE.AnimationMixer(characterScene);
@@ -201,6 +203,7 @@ const generateNavMesh = () => {
     // update agent helper geometry with current settings
     agentHelper.geometry.dispose(); // clean up old geometry
     agentHelper.geometry = new THREE.CapsuleGeometry(guiSettings.walkableRadius, guiSettings.walkableHeight);
+    agentHelper.geometry.rotateX(Math.PI / 2);
 
     const walkableMeshes: THREE.Mesh[] = [];
     levelModel.scene.traverse((object) => {
@@ -241,7 +244,7 @@ const generateNavMesh = () => {
 
     // create new helper and add to scene
     navMeshHelper = createNavMeshHelper(navMesh);
-    navMeshHelper.object.position.y += 0.15;
+    navMeshHelper.object.position.z += 0.15;
     scene.add(navMeshHelper.object);
 
     console.log('Navmesh generated successfully!');
@@ -253,7 +256,7 @@ generateNavMesh();
 /* position player on navmesh */
 
 // find a good starting position on the navmesh
-const startPosition: Vec3 = [0, 1, 0];
+const startPosition: Vec3 = [0, 0, 1];
 const nearestPolyResult = findNearestPoly(
     createFindNearestPolyResult(),
     navMesh,
@@ -303,13 +306,13 @@ const movementUpdate = (delta: number) => {
     movement.vector.set(0, 0, 0);
 
     if (forward || back) {
-        if (forward) movement.vector.z -= 1;
-        if (back) movement.vector.z += 1;
+        if (forward) movement.vector.x -= 1;
+        if (back) movement.vector.x += 1;
     }
 
     if (left || right) {
-        if (left) movement.vector.x -= 1;
-        if (right) movement.vector.x += 1;
+        if (left) movement.vector.y -= 1;
+        if (right) movement.vector.y += 1;
     }
 
     const movementScalar = sprint ? guiSettings.runningSpeed : guiSettings.walkingSpeed;
@@ -355,8 +358,8 @@ const animationUpdate = (delta: number) => {
 
     // update rotation
     if (movement.vector.length() > 0) {
-        const rotation = Math.atan2(movement.vector.x, movement.vector.z);
-        const targetQuaternion = playerQuaternion.setFromEuler(playerEuler.set(0, rotation, 0));
+        const rotation = Math.atan2(movement.vector.y, movement.vector.x);
+        const targetQuaternion = playerQuaternion.setFromEuler(playerEuler.set(0, 0, rotation));
         playerGroup.quaternion.slerp(targetQuaternion, t * 5);
     }
 
@@ -394,9 +397,9 @@ const animationUpdate = (delta: number) => {
 
     // raycast to correct character height
     const characterRayOrigin = raycasterOrigin.copy(playerGroup.position);
-    characterRayOrigin.y += 1;
+    characterRayOrigin.z += 1;
 
-    const characterRayDirection = raycasterDirection.set(0, -1, 0);
+    const characterRayDirection = raycasterDirection.set(0, 0, -1);
     raycaster.set(characterRayOrigin, characterRayDirection);
 
     const walkableMeshes: THREE.Object3D[] = [];
@@ -414,16 +417,16 @@ const animationUpdate = (delta: number) => {
     const characterRayHitPoint = characterRayHit ? characterRayHit.point : undefined;
 
     if (characterRayHitPoint) {
-        const yDifference = Math.abs(characterRayHitPoint.y - playerGroup.position.y);
-        if (yDifference < 1) {
-            playerGroup.position.y = characterRayHitPoint.y;
+        const zDifference = Math.abs(characterRayHitPoint.z - playerGroup.position.z);
+        if (zDifference < 1) {
+            playerGroup.position.z = characterRayHitPoint.z;
         }
     }
 };
 
 /* camera update function */
 const cameraUpdate = (delta: number) => {
-    const cameraOffsetVector = cameraOffset.set(0, guiSettings.offsetAbove, guiSettings.offsetBehind);
+    const cameraOffsetVector = cameraOffset.set(guiSettings.offsetBehind, 0, guiSettings.offsetAbove);
     const cameraPositionTargetVector = cameraPositionTarget.copy(playerGroup.position).add(cameraOffsetVector);
 
     const t = 1.0 - 0.01 ** delta;

@@ -6,12 +6,12 @@ import {
     findNearestPoly,
     findRandomPoint,
     getNodeByRef,
-} from 'navcat';
-import { crowd, floodFillNavMesh, generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
+} from 'navcat-zup';
+import { crowd, floodFillNavMesh, generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
 import {
     createNavMeshHelper,
     getPositionsAndIndices
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import * as THREE from 'three/webgpu';
 import { loadGLTF } from './common/load-gltf';
@@ -37,7 +37,7 @@ scene.background = new THREE.Color(0x202020);
 
 // camera
 const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 // renderer
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -159,7 +159,7 @@ if (seedPoly.success) {
 }
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 /* agent visuals using instanced meshes */
@@ -177,6 +177,7 @@ const maxAgents = 1000;
 const agentRadius = 0.35;
 const agentHeight = 0.4;
 const capsuleGeometry = new THREE.CapsuleGeometry(agentRadius, agentHeight, 4, 8);
+capsuleGeometry.rotateX(Math.PI / 2); // capsule long axis +Y -> +Z
 const capsuleMaterial = new THREE.MeshLambertMaterial();
 const capsuleInstances = new THREE.InstancedMesh(capsuleGeometry, capsuleMaterial, maxAgents);
 capsuleInstances.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -257,6 +258,9 @@ function createArrowGeometry(length: number): THREE.BufferGeometry {
         mergedGeometry.setIndex(new THREE.BufferAttribute(indices, 1));
     }
 
+    // arrow was built along +Y in geometry space; rotate so its axis is +Z for the z-up world
+    mergedGeometry.rotateX(Math.PI / 2);
+
     return mergedGeometry;
 }
 
@@ -283,7 +287,7 @@ const updateAgentVisuals = (
     // CapsuleGeometry total height = height + 2*radius, so center is at (height + 2*radius) / 2
     const capsuleTotalHeight = agentHeight + 2 * agentRadius;
     const capsuleCenterOffset = capsuleTotalHeight / 2;
-    _tempPosition.set(agent.position[0], agent.position[1] + capsuleCenterOffset, agent.position[2]);
+    _tempPosition.set(agent.position[0], agent.position[1], agent.position[2] + capsuleCenterOffset);
     _tempQuaternion.identity();
     _tempScale.set(1, 1, 1);
     _tempMatrix.compose(_tempPosition, _tempQuaternion, _tempScale);
@@ -291,7 +295,7 @@ const updateAgentVisuals = (
     capsuleInstances.setColorAt(instanceId, visuals.color);
 
     // Update target position and color
-    _tempPosition.set(agent.targetPosition[0], agent.targetPosition[1] + 0.1, agent.targetPosition[2]);
+    _tempPosition.set(agent.targetPosition[0], agent.targetPosition[1], agent.targetPosition[2] + 0.1);
     _tempMatrix.compose(_tempPosition, _tempQuaternion, _tempScale);
     targetInstances.setMatrixAt(instanceId, _tempMatrix);
     targetInstances.setColorAt(instanceId, visuals.color);
@@ -321,15 +325,15 @@ const updateVelocityArrows = (agents: crowd.Crowd, agentVisuals: Record<string, 
         if (velLength > 0.01) {
             const velDirection = vec3.normalize([0, 0, 0], agent.velocity);
 
-            _tempPosition.set(agent.position[0], agent.position[1] + 0.5, agent.position[2]);
+            _tempPosition.set(agent.position[0], agent.position[1], agent.position[2] + 0.5);
 
             // Create rotation to point arrow in velocity direction
-            const up = new THREE.Vector3(0, 1, 0);
+            const up = new THREE.Vector3(0, 0, 1);
             const dir = new THREE.Vector3(velDirection[0], velDirection[1], velDirection[2]);
             _tempQuaternion.setFromUnitVectors(up, dir);
 
             const scale = velLength * 0.5;
-            _tempScale.set(1, scale, 1);
+            _tempScale.set(1, 1, scale);
 
             _tempMatrix.compose(_tempPosition, _tempQuaternion, _tempScale);
             velocityArrowInstances.setMatrixAt(velocityArrowCount, _tempMatrix);
@@ -341,14 +345,14 @@ const updateVelocityArrows = (agents: crowd.Crowd, agentVisuals: Record<string, 
         if (desiredVelLength > 0.01) {
             const desiredVelDirection = vec3.normalize([0, 0, 0], agent.desiredVelocity);
 
-            _tempPosition.set(agent.position[0], agent.position[1] + 0.6, agent.position[2]);
+            _tempPosition.set(agent.position[0], agent.position[1], agent.position[2] + 0.6);
 
-            const up = new THREE.Vector3(0, 1, 0);
+            const up = new THREE.Vector3(0, 0, 1);
             const dir = new THREE.Vector3(desiredVelDirection[0], desiredVelDirection[1], desiredVelDirection[2]);
             _tempQuaternion.setFromUnitVectors(up, dir);
 
             const scale = desiredVelLength * 0.5;
-            _tempScale.set(1, scale, 1);
+            _tempScale.set(1, 1, scale);
 
             _tempMatrix.compose(_tempPosition, _tempQuaternion, _tempScale);
             desiredVelocityArrowInstances.setMatrixAt(desiredVelocityArrowCount, _tempMatrix);

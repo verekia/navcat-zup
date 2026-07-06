@@ -50,15 +50,15 @@ const calculateTriangleBounds = (vertices: ArrayLike<number>, indices: ArrayLike
     const i2 = indices[triIndex * 3 + 2] * 3;
 
     const v0x = vertices[i0 + 0];
-    const v0z = vertices[i0 + 2];
+    const v0y = vertices[i0 + 1];
     const v1x = vertices[i1 + 0];
-    const v1z = vertices[i1 + 2];
+    const v1y = vertices[i1 + 1];
     const v2x = vertices[i2 + 0];
-    const v2z = vertices[i2 + 2];
+    const v2y = vertices[i2 + 1];
 
     return [
-        [Math.min(v0x, v1x, v2x), Math.min(v0z, v1z, v2z)],
-        [Math.max(v0x, v1x, v2x), Math.max(v0z, v1z, v2z)],
+        [Math.min(v0x, v1x, v2x), Math.min(v0y, v1y, v2y)],
+        [Math.max(v0x, v1x, v2x), Math.max(v0y, v1y, v2y)],
     ];
 };
 
@@ -121,11 +121,12 @@ const subdivide = (
         // internal node - split along longest axis
         node.bounds = calculateExtents(items, min, max);
 
-        const axis = longestAxis(node.bounds[1][0] - node.bounds[0][0], node.bounds[1][1] - node.bounds[0][1]);
+        const axis = longestAxis(node.bounds[1][1] - node.bounds[0][1], node.bounds[1][0] - node.bounds[0][0]);
+        const sortAxis = axis === 0 ? 1 : 0;
 
         // sort items along the chosen axis (in-place sort of the range [min, max))
         const sorted = items.slice(min, max).sort((a, b) => {
-            return a.bounds[0][axis] - b.bounds[0][axis];
+            return a.bounds[0][sortAxis] - b.bounds[0][sortAxis];
         });
         for (let i = 0; i < sorted.length; i++) {
             items[min + i] = sorted[i];
@@ -194,8 +195,8 @@ const checkOverlapRect = (aMin: Vec2, aMax: Vec2, bMin: Vec2, bMax: Vec2): boole
  * Get all triangle chunks that overlap with a rectangular region
  *
  * @param chunkyTriMesh the chunky tri mesh to query
- * @param boundsMin minimum corner of query rectangle [x, z]
- * @param boundsMax maximum corner of query rectangle [x, z]
+ * @param boundsMin minimum corner of query rectangle [x, y]
+ * @param boundsMax maximum corner of query rectangle [x, y]
  * @returns Array of node indices that overlap the query region
  */
 export const getChunksOverlappingRect = (chunkyTriMesh: ChunkyTriMesh, boundsMin: Vec2, boundsMax: Vec2): number[] => {
@@ -228,8 +229,8 @@ export const getChunksOverlappingRect = (chunkyTriMesh: ChunkyTriMesh, boundsMin
  * Get all triangles that overlap with a rectangular region
  *
  * @param chunkyTriMesh the chunky tri mesh to query
- * @param boundsMin minimum corner of query rectangle [x, z]
- * @param boundsMax maximum corner of query rectangle [x, z]
+ * @param boundsMin minimum corner of query rectangle [x, y]
+ * @param boundsMax maximum corner of query rectangle [x, y]
  * @returns Flat array of triangle indices [i0, i1, i2, i0, i1, i2, ...]
  */
 export const getTrianglesInRect = (chunkyTriMesh: ChunkyTriMesh, boundsMin: Vec2, boundsMax: Vec2): number[] => {
@@ -291,8 +292,8 @@ const checkOverlapSegment = (p: Vec2, q: Vec2, bMin: Vec2, bMax: Vec2): boolean 
  * Get all triangle chunks that overlap with a line segment
  *
  * @param chunkyTriMesh the chunky tri mesh to query
- * @param p start point of segment [x, z]
- * @param q end point of segment [x, z]
+ * @param p start point of segment [x, y]
+ * @param q end point of segment [x, y]
  * @returns Array of node indices that overlap the segment
  */
 export const getChunksOverlappingSegment = (chunkyTriMesh: ChunkyTriMesh, p: Vec2, q: Vec2): number[] => {

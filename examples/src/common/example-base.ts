@@ -1,5 +1,8 @@
 import * as THREE from 'three/webgpu';
 
+// navcat-zup uses a z-up coordinate system, so configure threejs to use z-up as well
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
 export type ExampleBase = {
     scene: THREE.Scene,
     camera: THREE.PerspectiveCamera,
@@ -18,7 +21,7 @@ export const createExample = async (container: HTMLElement): Promise<ExampleBase
         0.1,
         1000,
     );
-    camera.position.set(0, 0, 5);
+    camera.position.set(5, 0, 0);
 
     // renderer
     const renderer = new THREE.WebGPURenderer({ antialias: true });

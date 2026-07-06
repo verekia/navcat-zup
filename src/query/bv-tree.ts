@@ -95,29 +95,29 @@ const subdivide = (
         node.bounds[5] = extents[5];
 
         const axis = longestAxis(
-            node.bounds[3] - node.bounds[0],
             node.bounds[4] - node.bounds[1],
             node.bounds[5] - node.bounds[2],
+            node.bounds[3] - node.bounds[0],
         );
 
         if (axis === 0) {
-            // Sort along x-axis
-            const segment = items.slice(imin, imax);
-            segment.sort(compareItemX);
-            for (let i = 0; i < segment.length; i++) {
-                items[imin + i] = segment[i];
-            }
-        } else if (axis === 1) {
             // Sort along y-axis
             const segment = items.slice(imin, imax);
             segment.sort(compareItemY);
             for (let i = 0; i < segment.length; i++) {
                 items[imin + i] = segment[i];
             }
-        } else {
+        } else if (axis === 1) {
             // Sort along z-axis
             const segment = items.slice(imin, imax);
             segment.sort(compareItemZ);
+            for (let i = 0; i < segment.length; i++) {
+                items[imin + i] = segment[i];
+            }
+        } else {
+            // Sort along x-axis
+            const segment = items.slice(imin, imax);
+            segment.sort(compareItemX);
             for (let i = 0; i < segment.length; i++) {
                 items[imin + i] = segment[i];
             }

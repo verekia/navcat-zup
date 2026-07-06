@@ -3,7 +3,7 @@
 /* SNIPPET_START: generationFull */
 
 /* SNIPPET_START: input */
-import * as Nav from 'navcat';
+import * as Nav from 'navcat-zup';
 
 // flat array of vertex positions [x1, y1, z1, x2, y2, z2, ...]
 const positions: number[] = [];
@@ -148,8 +148,8 @@ const navMesh = Nav.createNavMesh();
 
 // set the navmesh parameters using the poly mesh bounds
 // this example is for a single tile navmesh, so the tile width/height is the same as the poly mesh bounds size
-navMesh.tileWidth = polyMesh.bounds[3] - polyMesh.bounds[0];
-navMesh.tileHeight = polyMesh.bounds[5] - polyMesh.bounds[2];
+navMesh.tileWidth = polyMesh.bounds[4] - polyMesh.bounds[1];
+navMesh.tileHeight = polyMesh.bounds[3] - polyMesh.bounds[0];
 navMesh.origin[0] = polyMesh.bounds[0];
 navMesh.origin[1] = polyMesh.bounds[1];
 navMesh.origin[2] = polyMesh.bounds[2];
@@ -183,8 +183,8 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: findPath */
-    const start: Nav.Vec3 = [1, 0, 1];
-    const end: Nav.Vec3 = [8, 0, 8];
+    const start: Nav.Vec3 = [1, 1, 0];
+    const end: Nav.Vec3 = [8, 8, 0];
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
 
     // find a path from start to end
@@ -199,7 +199,7 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: findNearestPoly */
-    const position: Nav.Vec3 = [1, 0, 1];
+    const position: Nav.Vec3 = [1, 1, 0];
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
 
     // find the nearest nav mesh poly node to the position
@@ -225,7 +225,7 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: getClosestPointOnDetailEdges */
-    const position: Nav.Vec3 = [1, 0, 1];
+    const position: Nav.Vec3 = [1, 1, 0];
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
 
     // find the nearest nav mesh poly node to the position
@@ -258,8 +258,8 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: findNodePath */
-    const start: Nav.Vec3 = [1, 0, 1];
-    const end: Nav.Vec3 = [8, 0, 8];
+    const start: Nav.Vec3 = [1, 1, 0];
+    const end: Nav.Vec3 = [8, 8, 0];
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
 
     // find the nearest nav mesh poly node to the start position
@@ -293,8 +293,8 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: findStraightPath */
-    const start: Nav.Vec3 = [1, 0, 1];
-    const end: Nav.Vec3 = [8, 0, 8];
+    const start: Nav.Vec3 = [1, 1, 0];
+    const end: Nav.Vec3 = [8, 8, 0];
 
     // array of nav mesh node refs, often retrieved from a call to findNodePath
     const findStraightPathNodes: Nav.NodeRef[] = [
@@ -311,8 +311,8 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: moveAlongSurface */
-    const start: Nav.Vec3 = [1, 0, 1];
-    const end: Nav.Vec3 = [8, 0, 8];
+    const start: Nav.Vec3 = [1, 1, 0];
+    const end: Nav.Vec3 = [8, 8, 0];
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
 
     const startNode = Nav.findNearestPoly(
@@ -334,8 +334,8 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: raycast */
-    const start: Nav.Vec3 = [1, 0, 1];
-    const end: Nav.Vec3 = [8, 0, 8];
+    const start: Nav.Vec3 = [1, 1, 0];
+    const end: Nav.Vec3 = [8, 8, 0];
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
 
     const startNode = Nav.findNearestPoly(
@@ -357,8 +357,8 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: raycastWithCosts */
-    const start: Nav.Vec3 = [1, 0, 1];
-    const end: Nav.Vec3 = [8, 0, 8];
+    const start: Nav.Vec3 = [1, 1, 0];
+    const end: Nav.Vec3 = [8, 8, 0];
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
 
     const startNode = Nav.findNearestPoly(
@@ -383,7 +383,7 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: getPolyHeight */
-    const position: Nav.Vec3 = [1, 0, 1];
+    const position: Nav.Vec3 = [1, 1, 0];
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
 
     const nearestPoly = Nav.findNearestPoly(
@@ -419,7 +419,7 @@ Nav.addTile(navMesh, tile);
 
 {
     /* SNIPPET_START: findRandomPointAroundCircle */
-    const center: Nav.Vec3 = [5, 0, 5];
+    const center: Nav.Vec3 = [5, 5, 0];
     const radius = 3.0; // world units
 
     const halfExtents: Nav.Vec3 = [0.5, 0.5, 0.5];
@@ -524,7 +524,7 @@ Nav.addTile(navMesh, tile);
         // start position in world space
         start: [0, 0, 0],
         // end position in world space
-        end: [1, 0, 1],
+        end: [1, 1, 0],
         // radius of the connection endpoints, if it's too small a poly may not be found to link the connection to
         radius: 0.5,
         // the direction of the off-mesh connection (START_TO_END or BIDIRECTIONAL)
@@ -554,8 +554,8 @@ Nav.addTile(navMesh, tile);
 
     // define a one-way off-mesh connection (e.g. a teleporter that only goes one way)
     const oneWayTeleporterOffMeshConnection: Nav.OffMeshConnectionParams = {
-        start: [2, 0, 2],
-        end: [3, 1, 3],
+        start: [2, 2, 0],
+        end: [3, 3, 1],
         radius: 0.5,
         direction: Nav.OffMeshConnectionDirection.START_TO_END,
         flags: 1,
@@ -606,7 +606,7 @@ Nav.addTile(navMesh, tile);
 
     const navMeshPortalsHelper = Nav.createNavMeshPortalsHelper(navMesh);
 
-    const findNodePathResult = Nav.findNodePath(navMesh, 0, 0, [1, 0, 1], [8, 0, 8], Nav.DEFAULT_QUERY_FILTER);
+    const findNodePathResult = Nav.findNodePath(navMesh, 0, 0, [1, 1, 0], [8, 8, 0], Nav.DEFAULT_QUERY_FILTER);
     const searchNodesHelper = Nav.createSearchNodesHelper(findNodePathResult.nodes);
 
     const navMeshOffMeshConnectionsHelper = Nav.createNavMeshOffMeshConnectionsHelper(navMesh);

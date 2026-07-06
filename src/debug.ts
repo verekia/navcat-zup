@@ -176,9 +176,9 @@ export const createTriangleAreaIdsHelper = (
 export const createHeightfieldHelper = (heightfield: Heightfield): DebugPrimitive[] => {
     // Count total spans
     let totalSpans = 0;
-    for (let z = 0; z < heightfield.height; z++) {
-        for (let x = 0; x < heightfield.width; x++) {
-            const columnIndex = x + z * heightfield.width;
+    for (let x = 0; x < heightfield.height; x++) {
+        for (let y = 0; y < heightfield.width; y++) {
+            const columnIndex = y + x * heightfield.width;
             let span = heightfield.spans[columnIndex];
             while (span) {
                 totalSpans++;
@@ -201,19 +201,19 @@ export const createHeightfieldHelper = (heightfield: Heightfield): DebugPrimitiv
 
     const areaToColorMap: Record<number, [number, number, number]> = {};
 
-    for (let z = 0; z < heightfield.height; z++) {
-        for (let x = 0; x < heightfield.width; x++) {
-            const columnIndex = x + z * heightfield.width;
+    for (let x = 0; x < heightfield.height; x++) {
+        for (let y = 0; y < heightfield.width; y++) {
+            const columnIndex = y + x * heightfield.width;
             let span = heightfield.spans[columnIndex];
 
             while (span) {
+                const worldY = heightfieldBoundsMin[1] + (y + 0.5) * cellSize;
                 const worldX = heightfieldBoundsMin[0] + (x + 0.5) * cellSize;
-                const worldZ = heightfieldBoundsMin[2] + (z + 0.5) * cellSize;
                 const spanHeight = (span.max - span.min) * cellHeight;
-                const worldY = heightfieldBoundsMin[1] + (span.min + (span.max - span.min) * 0.5) * cellHeight;
+                const worldZ = heightfieldBoundsMin[2] + (span.min + (span.max - span.min) * 0.5) * cellHeight;
 
                 positions.push(worldX, worldY, worldZ);
-                scales.push(cellSize * 0.9, spanHeight, cellSize * 0.9);
+                scales.push(cellSize * 0.9, cellSize * 0.9, spanHeight);
 
                 let color = areaToColorMap[span.area];
                 if (!color) {
@@ -249,9 +249,9 @@ export const createCompactHeightfieldSolidHelper = (compactHeightfield: CompactH
     const chf = compactHeightfield;
 
     let totalQuads = 0;
-    for (let y = 0; y < chf.height; y++) {
-        for (let x = 0; x < chf.width; x++) {
-            const cell = chf.cells[x + y * chf.width];
+    for (let x = 0; x < chf.height; x++) {
+        for (let y = 0; y < chf.width; y++) {
+            const cell = chf.cells[y + x * chf.width];
             totalQuads += cell.count;
         }
     }
@@ -265,11 +265,11 @@ export const createCompactHeightfieldSolidHelper = (compactHeightfield: CompactH
     const colors: number[] = [];
     let indexOffset = 0;
 
-    for (let y = 0; y < chf.height; y++) {
-        for (let x = 0; x < chf.width; x++) {
+    for (let x = 0; x < chf.height; x++) {
+        for (let y = 0; y < chf.width; y++) {
+            const fy = chf.bounds[1] + y * chf.cellSize;
             const fx = chf.bounds[0] + x * chf.cellSize;
-            const fz = chf.bounds[2] + y * chf.cellSize;
-            const cell = chf.cells[x + y * chf.width];
+            const cell = chf.cells[y + x * chf.width];
 
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 const span = chf.spans[i];
@@ -277,19 +277,19 @@ export const createCompactHeightfieldSolidHelper = (compactHeightfield: CompactH
 
                 areaToColor(_color, area);
 
-                const fy = chf.bounds[1] + (span.y + 1) * chf.cellHeight;
+                const fz = chf.bounds[2] + (span.z + 1) * chf.cellHeight;
 
                 // Create quad vertices
                 positions.push(fx, fy, fz);
                 colors.push(_color[0], _color[1], _color[2]);
 
-                positions.push(fx, fy, fz + chf.cellSize);
-                colors.push(_color[0], _color[1], _color[2]);
-
-                positions.push(fx + chf.cellSize, fy, fz + chf.cellSize);
-                colors.push(_color[0], _color[1], _color[2]);
-
                 positions.push(fx + chf.cellSize, fy, fz);
+                colors.push(_color[0], _color[1], _color[2]);
+
+                positions.push(fx + chf.cellSize, fy + chf.cellSize, fz);
+                colors.push(_color[0], _color[1], _color[2]);
+
+                positions.push(fx, fy + chf.cellSize, fz);
                 colors.push(_color[0], _color[1], _color[2]);
 
                 // Create triangles
@@ -326,9 +326,9 @@ export const createCompactHeightfieldDistancesHelper = (compactHeightfield: Comp
     const dscale = 255.0 / maxd;
 
     let totalQuads = 0;
-    for (let y = 0; y < chf.height; y++) {
-        for (let x = 0; x < chf.width; x++) {
-            const cell = chf.cells[x + y * chf.width];
+    for (let x = 0; x < chf.height; x++) {
+        for (let y = 0; y < chf.width; y++) {
+            const cell = chf.cells[y + x * chf.width];
             totalQuads += cell.count;
         }
     }
@@ -342,15 +342,15 @@ export const createCompactHeightfieldDistancesHelper = (compactHeightfield: Comp
     const colors: number[] = [];
     let indexOffset = 0;
 
-    for (let y = 0; y < chf.height; y++) {
-        for (let x = 0; x < chf.width; x++) {
+    for (let x = 0; x < chf.height; x++) {
+        for (let y = 0; y < chf.width; y++) {
+            const fy = chf.bounds[1] + y * chf.cellSize;
             const fx = chf.bounds[0] + x * chf.cellSize;
-            const fz = chf.bounds[2] + y * chf.cellSize;
-            const cell = chf.cells[x + y * chf.width];
+            const cell = chf.cells[y + x * chf.width];
 
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 const span = chf.spans[i];
-                const fy = chf.bounds[1] + (span.y + 1) * chf.cellHeight;
+                const fz = chf.bounds[2] + (span.z + 1) * chf.cellHeight;
 
                 const cd = Math.min(255, Math.floor(chf.distances[i] * dscale)) / 255.0;
 
@@ -358,13 +358,13 @@ export const createCompactHeightfieldDistancesHelper = (compactHeightfield: Comp
                 positions.push(fx, fy, fz);
                 colors.push(cd, cd, cd);
 
-                positions.push(fx, fy, fz + chf.cellSize);
-                colors.push(cd, cd, cd);
-
-                positions.push(fx + chf.cellSize, fy, fz + chf.cellSize);
-                colors.push(cd, cd, cd);
-
                 positions.push(fx + chf.cellSize, fy, fz);
+                colors.push(cd, cd, cd);
+
+                positions.push(fx + chf.cellSize, fy + chf.cellSize, fz);
+                colors.push(cd, cd, cd);
+
+                positions.push(fx, fy + chf.cellSize, fz);
                 colors.push(cd, cd, cd);
 
                 // Create triangles
@@ -393,9 +393,9 @@ export const createCompactHeightfieldRegionsHelper = (compactHeightfield: Compac
     const chf = compactHeightfield;
 
     let totalQuads = 0;
-    for (let y = 0; y < chf.height; y++) {
-        for (let x = 0; x < chf.width; x++) {
-            const cell = chf.cells[x + y * chf.width];
+    for (let x = 0; x < chf.height; x++) {
+        for (let y = 0; y < chf.width; y++) {
+            const cell = chf.cells[y + x * chf.width];
             totalQuads += cell.count;
         }
     }
@@ -409,15 +409,15 @@ export const createCompactHeightfieldRegionsHelper = (compactHeightfield: Compac
     const colors: number[] = [];
     let indexOffset = 0;
 
-    for (let y = 0; y < chf.height; y++) {
-        for (let x = 0; x < chf.width; x++) {
+    for (let x = 0; x < chf.height; x++) {
+        for (let y = 0; y < chf.width; y++) {
+            const fy = chf.bounds[1] + y * chf.cellSize;
             const fx = chf.bounds[0] + x * chf.cellSize;
-            const fz = chf.bounds[2] + y * chf.cellSize;
-            const cell = chf.cells[x + y * chf.width];
+            const cell = chf.cells[y + x * chf.width];
 
             for (let i = cell.index; i < cell.index + cell.count; i++) {
                 const span = chf.spans[i];
-                const fy = chf.bounds[1] + span.y * chf.cellHeight;
+                const fz = chf.bounds[2] + span.z * chf.cellHeight;
 
                 regionToColor(_color, span.region);
 
@@ -425,13 +425,13 @@ export const createCompactHeightfieldRegionsHelper = (compactHeightfield: Compac
                 positions.push(fx, fy, fz);
                 colors.push(_color[0], _color[1], _color[2]);
 
-                positions.push(fx, fy, fz + chf.cellSize);
-                colors.push(_color[0], _color[1], _color[2]);
-
-                positions.push(fx + chf.cellSize, fy, fz + chf.cellSize);
-                colors.push(_color[0], _color[1], _color[2]);
-
                 positions.push(fx + chf.cellSize, fy, fz);
+                colors.push(_color[0], _color[1], _color[2]);
+
+                positions.push(fx + chf.cellSize, fy + chf.cellSize, fz);
+                colors.push(_color[0], _color[1], _color[2]);
+
+                positions.push(fx, fy + chf.cellSize, fz);
                 colors.push(_color[0], _color[1], _color[2]);
 
                 // Create triangles
@@ -478,8 +478,8 @@ export const createRawContoursHelper = (contourSet: ContourSet): DebugPrimitive[
         for (let j = 0; j < c.nRawVertices; ++j) {
             const v = c.rawVertices.slice(j * 4, j * 4 + 4);
             const fx = orig[0] + v[0] * cs;
-            const fy = orig[1] + (v[1] + 1 + (i & 1)) * ch;
-            const fz = orig[2] + v[2] * cs;
+            const fy = orig[1] + v[1] * cs;
+            const fz = orig[2] + (v[2] + 1 + (i & 1)) * ch;
 
             linePositions.push(fx, fy, fz);
             lineColors.push(_color[0], _color[1], _color[2]);
@@ -494,8 +494,8 @@ export const createRawContoursHelper = (contourSet: ContourSet): DebugPrimitive[
         if (c.nRawVertices > 0) {
             const v = c.rawVertices.slice(0, 4);
             const fx = orig[0] + v[0] * cs;
-            const fy = orig[1] + (v[1] + 1 + (i & 1)) * ch;
-            const fz = orig[2] + v[2] * cs;
+            const fy = orig[1] + v[1] * cs;
+            const fz = orig[2] + (v[2] + 1 + (i & 1)) * ch;
 
             linePositions.push(fx, fy, fz);
             lineColors.push(_color[0], _color[1], _color[2]);
@@ -520,8 +520,8 @@ export const createRawContoursHelper = (contourSet: ContourSet): DebugPrimitive[
             }
 
             const fx = orig[0] + v[0] * cs;
-            const fy = orig[1] + (v[1] + 1 + (i & 1)) * ch + off;
-            const fz = orig[2] + v[2] * cs;
+            const fy = orig[1] + v[1] * cs;
+            const fz = orig[2] + (v[2] + 1 + (i & 1)) * ch + off;
 
             pointPositions.push(fx, fy, fz);
             pointColors.push(colv[0], colv[1], colv[2]);
@@ -593,12 +593,12 @@ export const createSimplifiedContoursHelper = (contourSet: ContourSet): DebugPri
             const col = isAreaBorder ? borderColor : baseColor;
 
             const fx1 = orig[0] + va[0] * cs;
-            const fy1 = orig[1] + (va[1] + 1 + (i & 1)) * ch;
-            const fz1 = orig[2] + va[2] * cs;
+            const fy1 = orig[1] + va[1] * cs;
+            const fz1 = orig[2] + (va[2] + 1 + (i & 1)) * ch;
 
             const fx2 = orig[0] + vb[0] * cs;
-            const fy2 = orig[1] + (vb[1] + 1 + (i & 1)) * ch;
-            const fz2 = orig[2] + vb[2] * cs;
+            const fy2 = orig[1] + vb[1] * cs;
+            const fz2 = orig[2] + (vb[2] + 1 + (i & 1)) * ch;
 
             linePositions.push(fx1, fy1, fz1);
             lineColors.push(col[0], col[1], col[2]);
@@ -624,8 +624,8 @@ export const createSimplifiedContoursHelper = (contourSet: ContourSet): DebugPri
             }
 
             const fx = orig[0] + v[0] * cs;
-            const fy = orig[1] + (v[1] + 1 + (i & 1)) * ch + off;
-            const fz = orig[2] + v[2] * cs;
+            const fy = orig[1] + v[1] * cs;
+            const fz = orig[2] + (v[2] + 1 + (i & 1)) * ch + off;
 
             pointPositions.push(fx, fy, fz);
             pointColors.push(colv[0], colv[1], colv[2]);
@@ -697,8 +697,8 @@ export const createPolyMeshHelper = (polyMesh: PolyMesh): DebugPrimitive[] => {
             for (let k = 0; k < 3; k++) {
                 const vertIndex = vertices[k] * 3;
                 const x = orig[0] + polyMesh.vertices[vertIndex] * cs;
-                const y = orig[1] + (polyMesh.vertices[vertIndex + 1] + 1) * ch;
-                const z = orig[2] + polyMesh.vertices[vertIndex + 2] * cs;
+                const y = orig[1] + polyMesh.vertices[vertIndex + 1] * cs;
+                const z = orig[2] + (polyMesh.vertices[vertIndex + 2] + 1) * ch;
 
                 triPositions.push(x, y, z);
                 triColors.push(_color[0], _color[1], _color[2]);
@@ -725,8 +725,8 @@ export const createPolyMeshHelper = (polyMesh: PolyMesh): DebugPrimitive[] => {
             for (let k = 0; k < 2; k++) {
                 const vertIndex = vertices[k] * 3;
                 const x = orig[0] + polyMesh.vertices[vertIndex] * cs;
-                const y = orig[1] + (polyMesh.vertices[vertIndex + 1] + 1) * ch + 0.01;
-                const z = orig[2] + polyMesh.vertices[vertIndex + 2] * cs;
+                const y = orig[1] + polyMesh.vertices[vertIndex + 1] * cs;
+                const z = orig[2] + (polyMesh.vertices[vertIndex + 2] + 1) * ch + 0.01;
 
                 edgeLinePositions.push(x, y, z);
                 edgeLineColors.push(edgeColor[0], edgeColor[1], edgeColor[2]);
@@ -739,8 +739,8 @@ export const createPolyMeshHelper = (polyMesh: PolyMesh): DebugPrimitive[] => {
     for (let i = 0; i < polyMesh.nVertices; i++) {
         const vertIndex = i * 3;
         const x = orig[0] + polyMesh.vertices[vertIndex] * cs;
-        const y = orig[1] + (polyMesh.vertices[vertIndex + 1] + 1) * ch + 0.01;
-        const z = orig[2] + polyMesh.vertices[vertIndex + 2] * cs;
+        const y = orig[1] + polyMesh.vertices[vertIndex + 1] * cs;
+        const z = orig[2] + (polyMesh.vertices[vertIndex + 2] + 1) * ch + 0.01;
 
         vertexPositions.push(x, y, z);
         vertexColors.push(vertexColor[0], vertexColor[1], vertexColor[2]);
@@ -1106,12 +1106,12 @@ export const createNavMeshHelper = (navMesh: NavMesh): DebugPrimitive[] => {
                 const v2Base = polyVertIndex2 * 3;
 
                 const v1x = tile.vertices[v1Base];
-                const v1y = tile.vertices[v1Base + 1] + 0.01; // Slightly offset up
-                const v1z = tile.vertices[v1Base + 2];
+                const v1y = tile.vertices[v1Base + 1];
+                const v1z = tile.vertices[v1Base + 2] + 0.01; // Slightly offset up
 
                 const v2x = tile.vertices[v2Base];
-                const v2y = tile.vertices[v2Base + 1] + 0.01;
-                const v2z = tile.vertices[v2Base + 2];
+                const v2y = tile.vertices[v2Base + 1];
+                const v2z = tile.vertices[v2Base + 2] + 0.01;
 
                 if (isBoundary) {
                     // Outer boundary edge
@@ -1278,12 +1278,12 @@ export const createNavMeshTileHelper = (tile: NavMeshTile): DebugPrimitive[] => 
             const v2Base = polyVertIndex2 * 3;
 
             const v1x = tile.vertices[v1Base];
-            const v1y = tile.vertices[v1Base + 1] + 0.01; // Slightly offset up
-            const v1z = tile.vertices[v1Base + 2];
+            const v1y = tile.vertices[v1Base + 1];
+            const v1z = tile.vertices[v1Base + 2] + 0.01; // Slightly offset up
 
             const v2x = tile.vertices[v2Base];
-            const v2y = tile.vertices[v2Base + 1] + 0.01;
-            const v2z = tile.vertices[v2Base + 2];
+            const v2y = tile.vertices[v2Base + 1];
+            const v2z = tile.vertices[v2Base + 2] + 0.01;
 
             if (isBoundary) {
                 // Outer boundary edge
@@ -1648,11 +1648,11 @@ export const createNavMeshLinksHelper = (navMesh: NavMesh): DebugPrimitive[] => 
         // Move the edge midpoint slightly towards the polygon center (10% of the way)
         const inwardFactor = 0.1;
         const sourcePoint = vec3.lerp(_createNavMeshLinksHelper_sourcePoint, edgeMidpoint, sourceCenter, inwardFactor);
-        sourcePoint[1] += 0.05; // slight y offset
+        sourcePoint[2] += 0.05; // slight z offset
 
         // For the target, use the target polygon center
         const targetPoint = vec3.copy(_createNavMeshLinksHelper_targetPoint, targetCenter);
-        targetPoint[1] += 0.05; // slight y offset
+        targetPoint[2] += 0.05; // slight z offset
 
         // Create arced line with multiple segments
         const numSegments = 12;
@@ -1664,12 +1664,12 @@ export const createNavMeshLinksHelper = (navMesh: NavMesh): DebugPrimitive[] => 
 
             // Calculate positions along arc with sinusoidal height
             const x0 = lerp(sourcePoint[0], targetPoint[0], t0);
-            const y0 = lerp(sourcePoint[1], targetPoint[1], t0) + Math.sin(t0 * Math.PI) * arcHeight;
-            const z0 = lerp(sourcePoint[2], targetPoint[2], t0);
+            const y0 = lerp(sourcePoint[1], targetPoint[1], t0);
+            const z0 = lerp(sourcePoint[2], targetPoint[2], t0) + Math.sin(t0 * Math.PI) * arcHeight;
 
             const x1 = lerp(sourcePoint[0], targetPoint[0], t1);
-            const y1 = lerp(sourcePoint[1], targetPoint[1], t1) + Math.sin(t1 * Math.PI) * arcHeight;
-            const z1 = lerp(sourcePoint[2], targetPoint[2], t1);
+            const y1 = lerp(sourcePoint[1], targetPoint[1], t1);
+            const z1 = lerp(sourcePoint[2], targetPoint[2], t1) + Math.sin(t1 * Math.PI) * arcHeight;
 
             // Add line segment
             linePositions.push(x0, y0, z0, x1, y1, z1);
@@ -1682,14 +1682,14 @@ export const createNavMeshLinksHelper = (navMesh: NavMesh): DebugPrimitive[] => 
         // Add a simple arrow at the end to show direction
         const arrowT = 0.85; // Position arrow near the end
         const arrowX = lerp(sourcePoint[0], targetPoint[0], arrowT);
-        const arrowY = lerp(sourcePoint[1], targetPoint[1], arrowT) + Math.sin(arrowT * Math.PI) * arcHeight;
-        const arrowZ = lerp(sourcePoint[2], targetPoint[2], arrowT);
+        const arrowY = lerp(sourcePoint[1], targetPoint[1], arrowT);
+        const arrowZ = lerp(sourcePoint[2], targetPoint[2], arrowT) + Math.sin(arrowT * Math.PI) * arcHeight;
 
         // Calculate direction for arrow
         const nextT = 0.95;
         const nextX = lerp(sourcePoint[0], targetPoint[0], nextT);
-        const nextY = lerp(sourcePoint[1], targetPoint[1], nextT) + Math.sin(nextT * Math.PI) * arcHeight;
-        const nextZ = lerp(sourcePoint[2], targetPoint[2], nextT);
+        const nextY = lerp(sourcePoint[1], targetPoint[1], nextT);
+        const nextZ = lerp(sourcePoint[2], targetPoint[2], nextT) + Math.sin(nextT * Math.PI) * arcHeight;
 
         const dirX = nextX - arrowX;
         const dirY = nextY - arrowY;
@@ -1704,8 +1704,8 @@ export const createNavMeshLinksHelper = (navMesh: NavMesh): DebugPrimitive[] => 
         const arrowWidth = 0.08;
 
         // Calculate perpendicular vectors for arrow wings
-        const perpX = -nz;
-        const perpZ = nx;
+        const perpX = -ny;
+        const perpY = nx;
 
         // Left wing
         linePositions.push(
@@ -1713,8 +1713,8 @@ export const createNavMeshLinksHelper = (navMesh: NavMesh): DebugPrimitive[] => 
             arrowY,
             arrowZ,
             arrowX - nx * arrowLength + perpX * arrowWidth,
-            arrowY - ny * arrowLength,
-            arrowZ - nz * arrowLength + perpZ * arrowWidth,
+            arrowY - ny * arrowLength + perpY * arrowWidth,
+            arrowZ - nz * arrowLength,
         );
 
         // Right wing
@@ -1723,8 +1723,8 @@ export const createNavMeshLinksHelper = (navMesh: NavMesh): DebugPrimitive[] => 
             arrowY,
             arrowZ,
             arrowX - nx * arrowLength - perpX * arrowWidth,
-            arrowY - ny * arrowLength,
-            arrowZ - nz * arrowLength - perpZ * arrowWidth,
+            arrowY - ny * arrowLength - perpY * arrowWidth,
+            arrowZ - nz * arrowLength,
         );
 
         // Add colors for arrow (4 vertices = 2 line segments)
@@ -1751,7 +1751,7 @@ export const createNavMeshTilePortalsHelper = (navMeshTile: NavMeshTile): DebugP
     const primitives: DebugPrimitive[] = [];
 
     const padx = 0.04; // (purely visual)
-    const pady = navMeshTile.walkableClimb; // vertical extent
+    const padz = navMeshTile.walkableClimb; // vertical extent
 
     const sideColors: Record<number, [number, number, number]> = {
         0: [128 / 255, 0, 0], // red
@@ -1789,18 +1789,18 @@ export const createNavMeshTilePortalsHelper = (navMeshTile: NavMeshTile): DebugP
                 const bz = navMeshTile.vertices[bBase + 2];
 
                 if (side === 0 || side === 4) {
-                    const x = ax + (side === 0 ? -padx : padx);
+                    const y = ay + (side === 0 ? -padx : padx);
                     // Four edges of rectangle (8 vertices for 4 line segments)
-                    positions.push(x, ay - pady, az, x, ay + pady, az);
-                    positions.push(x, ay + pady, az, x, by + pady, bz);
-                    positions.push(x, by + pady, bz, x, by - pady, bz);
-                    positions.push(x, by - pady, bz, x, ay - pady, az);
+                    positions.push(ax, y, az - padz, ax, y, az + padz);
+                    positions.push(ax, y, az + padz, bx, y, bz + padz);
+                    positions.push(bx, y, bz + padz, bx, y, bz - padz);
+                    positions.push(bx, y, bz - padz, ax, y, az - padz);
                 } else if (side === 2 || side === 6) {
-                    const z = az + (side === 2 ? -padx : padx);
-                    positions.push(ax, ay - pady, z, ax, ay + pady, z);
-                    positions.push(ax, ay + pady, z, bx, by + pady, z);
-                    positions.push(bx, by + pady, z, bx, by - pady, z);
-                    positions.push(bx, by - pady, z, ax, ay - pady, z);
+                    const x = ax + (side === 2 ? -padx : padx);
+                    positions.push(x, ay, az - padz, x, ay, az + padz);
+                    positions.push(x, ay, az + padz, x, by, bz + padz);
+                    positions.push(x, by, bz + padz, x, by, bz - padz);
+                    positions.push(x, by, bz - padz, x, ay, az - padz);
                 }
 
                 // Add color entries (8 vertices per rectangle)
@@ -1845,7 +1845,7 @@ export const createSearchNodesHelper = (nodePool: SearchNodePool): DebugPrimitiv
         return primitives;
     }
 
-    const yOffset = 0.5;
+    const zOffset = 0.5;
     const pointPositions: number[] = [];
     const pointColors: number[] = [];
     const linePositions: number[] = [];
@@ -1861,7 +1861,7 @@ export const createSearchNodesHelper = (nodePool: SearchNodePool): DebugPrimitiv
         for (let i = 0; i < nodes.length; i++) {
             const node = nodes[i];
             const [x, y, z] = node.position;
-            pointPositions.push(x, y + yOffset, z);
+            pointPositions.push(x, y, z + zOffset);
             pointColors.push(pointColor[0], pointColor[1], pointColor[2]);
         }
     }
@@ -1889,7 +1889,7 @@ export const createSearchNodesHelper = (nodePool: SearchNodePool): DebugPrimitiv
 
             const [cx, cy, cz] = node.position;
             const [px, py, pz] = parent.position;
-            linePositions.push(cx, cy + yOffset, cz, px, py + yOffset, pz);
+            linePositions.push(cx, cy, cz + zOffset, px, py, pz + zOffset);
             lineColors.push(lineColor[0], lineColor[1], lineColor[2], lineColor[0], lineColor[1], lineColor[2]);
         }
     }
@@ -1950,11 +1950,11 @@ export const createNavMeshOffMeshConnectionsHelper = (navMesh: NavMesh): DebugPr
             const t0 = i / arcSegments;
             const t1 = (i + 1) / arcSegments;
             const x0 = lerp(start[0], end[0], t0);
-            const y0 = lerp(start[1], end[1], t0) + Math.sin(t0 * Math.PI) * 0.25;
-            const z0 = lerp(start[2], end[2], t0);
+            const y0 = lerp(start[1], end[1], t0);
+            const z0 = lerp(start[2], end[2], t0) + Math.sin(t0 * Math.PI) * 0.25;
             const x1 = lerp(start[0], end[0], t1);
-            const y1 = lerp(start[1], end[1], t1) + Math.sin(t1 * Math.PI) * 0.25;
-            const z1 = lerp(start[2], end[2], t1);
+            const y1 = lerp(start[1], end[1], t1);
+            const z1 = lerp(start[2], end[2], t1) + Math.sin(t1 * Math.PI) * 0.25;
             arcPositions.push(x0, y0, z0, x1, y1, z1);
             for (let k = 0; k < 2; k++) arcColors.push(arcColor[0], arcColor[1], arcColor[2]);
         }
@@ -1963,27 +1963,27 @@ export const createNavMeshOffMeshConnectionsHelper = (navMesh: NavMesh): DebugPr
         if (con.direction === OffMeshConnectionDirection.START_TO_END) {
             const tMid = 0.5;
             const xMid = lerp(start[0], end[0], tMid);
-            const yMid = lerp(start[1], end[1], tMid) + 0.25;
-            const zMid = lerp(start[2], end[2], tMid);
+            const yMid = lerp(start[1], end[1], tMid);
+            const zMid = lerp(start[2], end[2], tMid) + 0.25;
             const dirX = end[0] - start[0];
-            const dirZ = end[2] - start[2];
-            const len = Math.hypot(dirX, dirZ) || 1;
+            const dirY = end[1] - start[1];
+            const len = Math.hypot(dirX, dirY) || 1;
             const nx = dirX / len;
-            const nz = dirZ / len;
+            const ny = dirY / len;
             const back = 0.3;
             arcPositions.push(
                 xMid,
                 yMid,
                 zMid,
-                xMid - nx * back + nz * back * 0.5,
-                yMid - 0.05,
-                zMid - nz * back - nx * back * 0.5,
+                xMid - nx * back + ny * back * 0.5,
+                yMid - ny * back - nx * back * 0.5,
+                zMid - 0.05,
                 xMid,
                 yMid,
                 zMid,
-                xMid - nx * back - nz * back * 0.5,
-                yMid - 0.05,
-                zMid - nz * back + nx * back * 0.5,
+                xMid - nx * back - ny * back * 0.5,
+                yMid - ny * back + nx * back * 0.5,
+                zMid - 0.05,
             );
             for (let k = 0; k < 4; k++) arcColors.push(arcColor[0], arcColor[1], arcColor[2]);
         }
@@ -1993,14 +1993,14 @@ export const createNavMeshOffMeshConnectionsHelper = (navMesh: NavMesh): DebugPr
                 const a0 = (i / circleSegments) * Math.PI * 2;
                 const a1 = ((i + 1) / circleSegments) * Math.PI * 2;
                 const x0 = center[0] + Math.cos(a0) * radius;
-                const z0 = center[2] + Math.sin(a0) * radius;
+                const y0 = center[1] + Math.sin(a0) * radius;
                 const x1 = center[0] + Math.cos(a1) * radius;
-                const z1 = center[2] + Math.sin(a1) * radius;
-                circlePositions.push(x0, center[1] + 0.1, z0, x1, center[1] + 0.1, z1);
+                const y1 = center[1] + Math.sin(a1) * radius;
+                circlePositions.push(x0, y0, center[2] + 0.1, x1, y1, center[2] + 0.1);
                 for (let k = 0; k < 2; k++) circleColors.push(color[0], color[1], color[2]);
             }
             // Pillar
-            circlePositions.push(center[0], center[1], center[2], center[0], center[1] + 0.2, center[2]);
+            circlePositions.push(center[0], center[1], center[2], center[0], center[1], center[2] + 0.2);
             for (let k = 0; k < 2; k++) circleColors.push(pillarColor[0], pillarColor[1], pillarColor[2]);
         };
 

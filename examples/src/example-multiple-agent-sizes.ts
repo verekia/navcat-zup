@@ -45,8 +45,8 @@ import {
     type QueryFilter,
     rasterizeTriangles,
     WALKABLE_AREA,
-} from 'navcat';
-import type { TiledNavMeshInput } from 'navcat/blocks';
+} from 'navcat-zup';
+import type { TiledNavMeshInput } from 'navcat-zup/blocks';
 import {
     createCompactHeightfieldDistancesHelper,
     createCompactHeightfieldRegionsHelper,
@@ -63,11 +63,11 @@ import {
     createTriangleAreaIdsHelper,
     type DebugObject,
     getPositionsAndIndices,
-} from 'navcat/three';
+} from 'navcat-zup/three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
 import * as THREE from 'three/webgpu';
 import { loadGLTF } from './common/load-gltf';
-import { crowd, pathCorridor } from 'navcat/blocks';
+import { crowd, pathCorridor } from 'navcat-zup/blocks';
 
 const random = createMulberry32Generator(42);
 
@@ -270,8 +270,8 @@ function generateSoloNavMesh(input: SoloNavMeshInput, options: SoloNavMeshOption
     /* create a single tile nav mesh */
 
     const nav = createNavMesh();
-    nav.tileWidth = polyMesh.bounds[3] - polyMesh.bounds[0];
-    nav.tileHeight = polyMesh.bounds[5] - polyMesh.bounds[2];
+    nav.tileWidth = polyMesh.bounds[4] - polyMesh.bounds[1];
+    nav.tileHeight = polyMesh.bounds[3] - polyMesh.bounds[0];
     box3.min(nav.origin, polyMesh.bounds);
 
     const tilePolys = polyMeshToTilePolys(polyMesh);
@@ -362,7 +362,7 @@ scene.background = new THREE.Color(0x202020);
 
 // camera
 const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 // renderer
 const renderer = new THREE.WebGPURenderer({ antialias: true });
@@ -478,40 +478,40 @@ const navMesh = navMeshResult.navMesh;
 
 const offMeshConnections: OffMeshConnectionParams[] = [
     {
-        start: [0.39257542778564014, 3.9164539337158204, 2.7241512942770267],
-        end: [1.2915380743929097, 2.8616158587143867, 3.398593875470379],
+        start: [2.7241512942770267, 0.39257542778564014, 3.9164539337158204],
+        end: [3.398593875470379, 1.2915380743929097, 2.8616158587143867],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [3.491345350637368, 3.169861227710937, 2.8419154179454473],
-        end: [4.0038066734125435, 0.466454005241394, 1.686211347289651],
+        start: [2.8419154179454473, 3.491345350637368, 3.169861227710937],
+        end: [1.686211347289651, 4.0038066734125435, 0.466454005241394],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [4.612475330561077, 0.466454005241394, 2.7619018768157435],
-        end: [6.696740007427642, 0.5132029874438654, 2.5838885990777243],
+        start: [2.7619018768157435, 4.612475330561077, 0.466454005241394],
+        end: [2.5838885990777243, 6.696740007427642, 0.5132029874438654],
         direction: OffMeshConnectionDirection.BIDIRECTIONAL,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [3.8221359252929688, 0.47645399570465086, -4.391971844600165],
-        end: [5.91173484469572, 0.6573111525835266, -4.671632275169128],
+        start: [-4.391971844600165, 3.8221359252929688, 0.47645399570465086],
+        end: [-4.671632275169128, 5.91173484469572, 0.6573111525835266],
         direction: OffMeshConnectionDirection.BIDIRECTIONAL,
         radius: 0.5,
         flags: 0xffffff,
         area: 0x000000,
     },
     {
-        start: [8.354324172733968, 0.5340897451517822, -3.2333049546492223],
-        end: [8.461111697936666, 0.8365034207348984, -1.0863215738579806],
+        start: [-3.2333049546492223, 8.354324172733968, 0.5340897451517822],
+        end: [-1.0863215738579806, 8.461111697936666, 0.8365034207348984],
         direction: OffMeshConnectionDirection.START_TO_END,
         radius: 0.5,
         flags: 0xffffff,
@@ -634,7 +634,7 @@ function updateDebugHelpers() {
 
     if (guiSettings.showNavMesh) {
         debugHelpers.navMesh = createNavMeshHelper(navMesh);
-        debugHelpers.navMesh.object.position.y += 0.1;
+        debugHelpers.navMesh.object.position.z += 0.1;
         scene.add(debugHelpers.navMesh.object);
     }
 
@@ -698,7 +698,7 @@ const createPolyHelpers = (navMesh: NavMesh, scene: THREE.Scene): void => {
                 }
             });
 
-            helper.object.position.y += 0.15; // adjust height for visibility
+            helper.object.position.z += 0.15; // adjust height for visibility
             scene.add(helper.object);
 
             polyHelpers.set(polyRef, {
@@ -713,15 +713,16 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, color: number, r
     // Create capsule debug mesh
     // CapsuleGeometry is centered, so we need to offset it up by (height/2 + radius)
     const geometry = new THREE.CapsuleGeometry(radius, height, 4, 8);
+    geometry.rotateX(Math.PI / 2); // capsule long axis +Y -> +Z
     const material = new THREE.MeshLambertMaterial({ color });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(position[0], position[1] + height / 2 + radius, position[2]);
+    mesh.position.set(position[0], position[1], position[2] + height / 2 + radius);
     scene.add(mesh);
 
     // create velocity arrows (initially hidden)
     const velocityArrow = new THREE.ArrowHelper(
-        new THREE.Vector3(0, 0, 1), // default direction
-        new THREE.Vector3(position[0], position[1] + 0.5, position[2]), // origin
+        new THREE.Vector3(1, 0, 0), // default direction
+        new THREE.Vector3(position[0], position[1], position[2] + 0.5), // origin
         0.5, // length
         0x00ff00, // green for actual velocity
         0.2, // head length
@@ -731,8 +732,8 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, color: number, r
     scene.add(velocityArrow);
 
     const desiredVelocityArrow = new THREE.ArrowHelper(
-        new THREE.Vector3(0, 0, 1), // default direction
-        new THREE.Vector3(position[0], position[1] + 0.6, position[2]), // origin
+        new THREE.Vector3(1, 0, 0), // default direction
+        new THREE.Vector3(position[0], position[1], position[2] + 0.6), // origin
         0.5, // length
         0xff0000, // red for desired velocity
         0.2, // head length
@@ -745,7 +746,7 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, color: number, r
     const targetGeometry = new THREE.SphereGeometry(0.1, 8, 8);
     const targetMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
     const targetMesh = new THREE.Mesh(targetGeometry, targetMaterial);
-    targetMesh.position.set(position[0], position[1] + 0.1, position[2]);
+    targetMesh.position.set(position[0], position[1], position[2] + 0.1);
     scene.add(targetMesh);
 
     return {
@@ -767,11 +768,11 @@ const updateAgentVisuals = (
     // Update agent mesh position (capsule debug)
     // CapsuleGeometry is centered, so offset up by (height/2 + radius)
     visuals.mesh.position.fromArray(agent.position);
-    visuals.mesh.position.y += agent.height / 2 + agent.radius;
+    visuals.mesh.position.z += agent.height / 2 + agent.radius;
 
     // update target mesh position
     visuals.targetMesh.position.fromArray(agent.targetPosition);
-    visuals.targetMesh.position.y += 0.1;
+    visuals.targetMesh.position.z += 0.1;
 
     // handle path line visualization
     if (options.showPathLine) {
@@ -783,7 +784,7 @@ const updateAgentVisuals = (
 
             // add agent position
             if (Number.isFinite(agent.position[0]) && Number.isFinite(agent.position[1]) && Number.isFinite(agent.position[2])) {
-                validPoints.push(new THREE.Vector3(agent.position[0], agent.position[1] + 0.2, agent.position[2]));
+                validPoints.push(new THREE.Vector3(agent.position[0], agent.position[1], agent.position[2] + 0.2));
             }
 
             // add corners
@@ -793,7 +794,7 @@ const updateAgentVisuals = (
                     Number.isFinite(corner.position[1]) &&
                     Number.isFinite(corner.position[2])
                 ) {
-                    validPoints.push(new THREE.Vector3(corner.position[0], corner.position[1] + 0.2, corner.position[2]));
+                    validPoints.push(new THREE.Vector3(corner.position[0], corner.position[1], corner.position[2] + 0.2));
                 }
             }
 
@@ -829,7 +830,7 @@ const updateAgentVisuals = (
         const velLength = vec3.length(agent.velocity);
         if (velLength > 0.01) {
             const velDirection = vec3.normalize([0, 0, 0], agent.velocity);
-            const origin = new THREE.Vector3(agent.position[0], agent.position[1] + 0.5, agent.position[2]);
+            const origin = new THREE.Vector3(agent.position[0], agent.position[1], agent.position[2] + 0.5);
             const direction = new THREE.Vector3(velDirection[0], velDirection[1], velDirection[2]);
 
             visuals.velocityArrow.position.copy(origin);
@@ -845,7 +846,7 @@ const updateAgentVisuals = (
         const desiredVelLength = vec3.length(agent.desiredVelocity);
         if (desiredVelLength > 0.01) {
             const desiredVelDirection = vec3.normalize([0, 0, 0], agent.desiredVelocity);
-            const origin = new THREE.Vector3(agent.position[0], agent.position[1] + 0.6, agent.position[2]);
+            const origin = new THREE.Vector3(agent.position[0], agent.position[1], agent.position[2] + 0.6);
             const direction = new THREE.Vector3(desiredVelDirection[0], desiredVelDirection[1], desiredVelDirection[2]);
 
             visuals.desiredVelocityArrow.position.copy(origin);

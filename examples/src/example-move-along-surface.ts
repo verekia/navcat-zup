@@ -1,12 +1,12 @@
 import type { Vec3 } from 'mathcat';
 import { vec3 } from 'mathcat';
-import { DEFAULT_QUERY_FILTER, findNearestPoly, createFindNearestPolyResult, moveAlongSurface } from 'navcat';
+import { DEFAULT_QUERY_FILTER, findNearestPoly, createFindNearestPolyResult, moveAlongSurface } from 'navcat-zup';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/Addons.js';
-import { createNavMeshHelper, createNavMeshPolyHelper } from 'navcat/three';
+import { createNavMeshHelper, createNavMeshPolyHelper } from 'navcat-zup/three';
 import { createExample } from './common/example-base';
-import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat/blocks';
-import { getPositionsAndIndices } from 'navcat/three';
+import { generateTiledNavMesh, type TiledNavMeshInput, type TiledNavMeshOptions } from 'navcat-zup/blocks';
+import { getPositionsAndIndices } from 'navcat-zup/three';
 import { loadGLTF } from './common/load-gltf';
 import { createFlag } from './common/flag';
 
@@ -14,7 +14,7 @@ import { createFlag } from './common/flag';
 const container = document.getElementById('root')!;
 const { scene, camera, renderer } = await createExample(container);
 
-camera.position.set(-2, 10, 10);
+camera.position.set(10, -2, 10);
 
 const orbitControls = new OrbitControls(camera, renderer.domElement);
 orbitControls.enableDamping = true;
@@ -92,12 +92,12 @@ const navMeshResult = generateTiledNavMesh(navMeshInput, navMeshConfig);
 const navMesh = navMeshResult.navMesh;
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 scene.add(navMeshHelper.object);
 
 /* move along surface */
-let start: Vec3 =[-3.641054110753002, 1.3775759935379028, 2.7671564887530034]
-let end: Vec3 = [-2.857031378804761, 0.2670568953640924, 3.088813745131878]
+let start: Vec3 =[2.7671564887530034, -3.641054110753002, 1.3775759935379028]
+let end: Vec3 = [3.088813745131878, -2.857031378804761, 0.2670568953640924]
 
 const halfExtents: Vec3 = [1, 1, 1];
 
@@ -215,7 +215,7 @@ function updateMoveAlongSurface() {
     // visualize visited polygons
     for (const polyRef of result.visited) {
         const polyHelper = createNavMeshPolyHelper(navMesh, polyRef);
-        polyHelper.object.position.y += 0.3;
+        polyHelper.object.position.z += 0.3;
         addVisual({
             object: polyHelper.object,
             dispose: () => polyHelper.dispose(),

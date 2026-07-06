@@ -9,12 +9,15 @@ import {
     getNodeByRef,
     OffMeshConnectionDirection,
     type OffMeshConnectionParams,
-} from 'navcat';
-import { crowd, floodFillNavMesh, generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat/blocks';
-import { createNavMeshHelper, createNavMeshOffMeshConnectionsHelper, getPositionsAndIndices } from 'navcat/three';
+} from 'navcat-zup';
+import { crowd, floodFillNavMesh, generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat-zup/blocks';
+import { createNavMeshHelper, createNavMeshOffMeshConnectionsHelper, getPositionsAndIndices } from 'navcat-zup/three';
 import * as THREE from 'three';
 import { Line2, LineGeometry, LineMaterial } from 'three/examples/jsm/Addons.js';
 import { loadGLTF } from './load-gltf';
+
+// the world is z-up: ground plane is XY, +Z is up
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
 const random = createMulberry32Generator(42);
 
@@ -27,8 +30,8 @@ scene.background = new THREE.Color('#222222');
 
 // camera
 const camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
-camera.position.set(-5, 4, 10);
-camera.lookAt(-2, 0, 0);
+camera.position.set(10, -5, 4);
+camera.lookAt(0, -2, 0);
 
 // renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -47,7 +50,7 @@ const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
 scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-directionalLight.position.set(-5, 10, 2);
+directionalLight.position.set(2, -5, 10);
 directionalLight.castShadow = true;
 directionalLight.shadow.mapSize.width = 2048;
 directionalLight.shadow.mapSize.height = 2048;
@@ -199,24 +202,24 @@ const navMesh = navMeshResult.navMesh;
 
 const offMeshConnections: OffMeshConnectionParams[] = [
     {
-        start: [-2.6, 0, 6],
-        end: [-2, 1.6, 4.5],
+        start: [6, -2.6, 0],
+        end: [4.5, -2, 1.6],
         direction: OffMeshConnectionDirection.BIDIRECTIONAL,
         radius: 0.2,
         flags: 0xffffff,
         area: 0,
     },
     {
-        start: [-3.658154298168996, 0, 3.795235885826708],
-        end: [-5.640291081405719, 1, 2.7],
+        start: [3.795235885826708, -3.658154298168996, 0],
+        end: [2.7, -5.640291081405719, 1],
         direction: OffMeshConnectionDirection.BIDIRECTIONAL,
         radius: 0.2,
         flags: 0xffffff,
         area: 0,
     },
     {
-        start: [1.2, 0, -1.2],
-        end: [2, 1, 1.3],
+        start: [-1.2, 1.2, 0],
+        end: [1.3, 2, 1],
         direction: OffMeshConnectionDirection.BIDIRECTIONAL,
         radius: 0.2,
         flags: 0xffffff,
@@ -229,7 +232,7 @@ for (const offMeshConnection of offMeshConnections) {
 }
 
 // flood fill from a known good start poly, disable unreachable polys
-const seedPolyResult = findNearestPoly(createFindNearestPolyResult(), navMesh, [-3, 0, 6], [0.5, 0.5, 0.5], DEFAULT_QUERY_FILTER);
+const seedPolyResult = findNearestPoly(createFindNearestPolyResult(), navMesh, [6, -3, 0], [0.5, 0.5, 0.5], DEFAULT_QUERY_FILTER);
 const { unreachable } = floodFillNavMesh(navMesh, [seedPolyResult.nodeRef]);
 
 for (const unreachableNodeRef of unreachable) {
@@ -238,7 +241,7 @@ for (const unreachableNodeRef of unreachable) {
 }
 
 const navMeshHelper = createNavMeshHelper(navMesh);
-navMeshHelper.object.position.y += 0.1;
+navMeshHelper.object.position.z += 0.1;
 navMeshHelper.object.visible = false; // Start hidden
 scene.add(navMeshHelper.object);
 
@@ -337,7 +340,7 @@ type AgentVisuals = {
     currentRotation: number;
     targetRotation: number;
     emotionSprite: THREE.Sprite;
-    currentVisualY: number;
+    currentVisualZ: number;
     spinEndTime: number;
     idleWeight: number;
     walkWeight: number;
@@ -348,14 +351,18 @@ type AgentVisuals = {
 };
 
 const createAgentVisuals = (position: Vec3, scene: THREE.Scene, radius: number): AgentVisuals => {
-    const catGroup = cloneCatModel();
+    // loadGLTF sets a y-up -> z-up quaternion on the gltf scene, so wrap the clone in a
+    // parent group and apply heading rotation to the group to avoid clobbering that fix
+    const catModelInstance = cloneCatModel();
+    const catGroup = new THREE.Group();
+    catGroup.add(catModelInstance);
     catGroup.position.set(position[0], position[1], position[2]);
 
     const catScale = radius * 0.5;
     catGroup.scale.setScalar(catScale);
     scene.add(catGroup);
 
-    const mixer = new THREE.AnimationMixer(catGroup);
+    const mixer = new THREE.AnimationMixer(catModelInstance);
 
     const idleClip = catAnimations.find((clip) => clip.name === 'Idle')!;
     const idleAction = mixer.clipAction(idleClip);
@@ -392,7 +399,7 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, radius: number):
     });
     const emotionSprite = new THREE.Sprite(spriteMaterial);
     emotionSprite.scale.setScalar(2);
-    emotionSprite.position.y = 5; // position above cat
+    emotionSprite.position.z = 5; // position above cat
     catGroup.add(emotionSprite); // parent to cat so it follows
 
     return {
@@ -406,7 +413,7 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, radius: number):
         currentRotation: 0,
         targetRotation: 0,
         emotionSprite,
-        currentVisualY: position[1],
+        currentVisualZ: position[2],
         spinEndTime: 0,
         idleWeight: 1,
         walkWeight: 0,
@@ -419,34 +426,34 @@ const createAgentVisuals = (position: Vec3, scene: THREE.Scene, radius: number):
 
 const groundRaycaster = new THREE.Raycaster();
 const groundRayOrigin = new THREE.Vector3();
-const groundRayDirection = new THREE.Vector3(0, -1, 0);
+const groundRayDirection = new THREE.Vector3(0, 0, -1);
 
 const updateAgentVisuals = (_agentId: string, agent: crowd.Agent, visuals: AgentVisuals, deltaTime: number): void => {
     visuals.catGroup.position.fromArray(agent.position);
 
     // height adjustment via raycast
     if (!agent.offMeshAnimation) {
-        groundRayOrigin.set(agent.position[0], agent.position[1] + 0.1, agent.position[2]);
+        groundRayOrigin.set(agent.position[0], agent.position[1], agent.position[2] + 0.1);
         groundRaycaster.set(groundRayOrigin, groundRayDirection);
         const groundIntersects = groundRaycaster.intersectObjects(walkableMeshes, true);
 
         if (groundIntersects.length > 0) {
-            const rayHitY = groundIntersects[0].point.y;
+            const rayHitZ = groundIntersects[0].point.z;
 
             // if difference not too great, lerp to it
-            if (Math.abs(rayHitY - agent.position[1]) < 1) {
+            if (Math.abs(rayHitZ - agent.position[2]) < 1) {
                 // lerp speed - higher = faster adjustment
                 const heightLerpSpeed = 8.0;
-                visuals.currentVisualY += (rayHitY - visuals.currentVisualY) * heightLerpSpeed * deltaTime;
-                visuals.catGroup.position.y = visuals.currentVisualY;
+                visuals.currentVisualZ += (rayHitZ - visuals.currentVisualZ) * heightLerpSpeed * deltaTime;
+                visuals.catGroup.position.z = visuals.currentVisualZ;
             } else {
-                // large height difference - snap immediately and update current Y
-                visuals.currentVisualY = agent.position[1];
+                // large height difference - snap immediately and update current Z
+                visuals.currentVisualZ = agent.position[2];
             }
         }
     } else {
-        // during off-mesh animations, keep visual Y in sync
-        visuals.currentVisualY = visuals.catGroup.position.y;
+        // during off-mesh animations, keep visual Z in sync
+        visuals.currentVisualZ = visuals.catGroup.position.z;
     }
 
     // check if laser is directly hitting this cat
@@ -543,7 +550,7 @@ const updateAgentVisuals = (_agentId: string, agent: crowd.Agent, visuals: Agent
 
         if (velocity > minVelocityThreshold) {
             const direction = vec3.normalize([0, 0, 0], agent.velocity);
-            const targetAngle = Math.atan2(direction[0], direction[2]);
+            const targetAngle = Math.atan2(direction[1], direction[0]);
             visuals.targetRotation = targetAngle;
         } else if (agent.targetRef) {
             const targetDirection = vec3.subtract([0, 0, 0], agent.targetPosition, agent.position);
@@ -551,7 +558,7 @@ const updateAgentVisuals = (_agentId: string, agent: crowd.Agent, visuals: Agent
 
             if (targetDistance > 0.5) {
                 const normalizedTarget = vec3.normalize([0, 0, 0], targetDirection);
-                const targetAngle = Math.atan2(normalizedTarget[0], normalizedTarget[2]);
+                const targetAngle = Math.atan2(normalizedTarget[1], normalizedTarget[0]);
                 visuals.targetRotation = targetAngle;
             }
         }
@@ -567,7 +574,7 @@ const updateAgentVisuals = (_agentId: string, agent: crowd.Agent, visuals: Agent
         visuals.currentRotation += angleDiff * rotationLerpSpeed * deltaTime;
     }
 
-    visuals.catGroup.rotation.y = visuals.currentRotation;
+    visuals.catGroup.rotation.z = visuals.currentRotation;
 
     // update mixer
     visuals.mixer.update(deltaTime);
@@ -657,7 +664,14 @@ const _tempDirection = new THREE.Vector3();
 const _tempLocalDirection = new THREE.Vector3();
 const _tempQuaternion = new THREE.Quaternion();
 
-const laserPointer = laserPointerModel.scene.clone();
+// the laser pointer is parented to the camera, so it lives in camera-local (view) space,
+// not the z-up world: undo the y-up -> z-up quaternion loadGLTF put on the gltf scene,
+// and wrap it in a parent group that the aiming slerp rotates (so the slerp never
+// writes to the gltf scene's own rotation)
+const laserPointerModelScene = laserPointerModel.scene.clone();
+laserPointerModelScene.quaternion.identity();
+const laserPointer = new THREE.Group();
+laserPointer.add(laserPointerModelScene);
 const laserPointerButton = laserPointer.getObjectByName('Button002')!;
 const laserPointerTip = laserPointer.getObjectByName('Top001')!;
 const laserPointerButtonRestPosition = new THREE.Vector3();
@@ -1060,9 +1074,9 @@ function update() {
 
     // calculate target look position based on mouse
     const targetLookAt = new THREE.Vector3(
-        baseCameraLookAt.x + mouseScreenPos.x * cameraRotationAmount * 10,
-        baseCameraLookAt.y + mouseScreenPos.y * cameraRotationAmount * 5,
-        baseCameraLookAt.z,
+        baseCameraLookAt.x,
+        baseCameraLookAt.y + mouseScreenPos.x * cameraRotationAmount * 10,
+        baseCameraLookAt.z + mouseScreenPos.y * cameraRotationAmount * 5,
     );
 
     // get current look direction and lerp towards target
@@ -1208,18 +1222,18 @@ function update() {
                 // animate with a parabolic arc
                 const progress = anim.t / customDuration;
 
-                // linear interpolation for x and z
+                // linear interpolation for x and y
                 const x = anim.startPosition[0] + (anim.endPosition[0] - anim.startPosition[0]) * progress;
-                const z = anim.startPosition[2] + (anim.endPosition[2] - anim.startPosition[2]) * progress;
+                const y = anim.startPosition[1] + (anim.endPosition[1] - anim.startPosition[1]) * progress;
 
-                // parabolic arc for y (creates a jump effect)
-                const startY = anim.startPosition[1];
-                const endY = anim.endPosition[1];
+                // parabolic arc for z (creates a jump effect)
+                const startZ = anim.startPosition[2];
+                const endZ = anim.endPosition[2];
                 const arcHeight = 1.0; // height of the arc
 
-                // parabola: y = -4h * (p - 0.5)^2 + h where h is max height above start
+                // parabola: z = -4h * (p - 0.5)^2 + h where h is max height above start
                 const parabola = -4 * arcHeight * (progress - 0.5) ** 2 + arcHeight;
-                const y = startY + (endY - startY) * progress + parabola;
+                const z = startZ + (endZ - startZ) * progress + parabola;
 
                 vec3.set(agent.position, x, y, z);
             }

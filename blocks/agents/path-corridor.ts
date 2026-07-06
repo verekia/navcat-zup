@@ -17,7 +17,7 @@ import {
     SlicedFindNodePathStatusFlags,
     type StraightPathPoint,
     updateSlicedFindNodePath,
-} from 'navcat';
+} from 'navcat-zup';
 
 export type PathCorridor = {
     position: Vec3;

@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "navcat": "workspace:*",
+    "navcat-zup": "workspace:*",
     "three": "^0.183.0"
   },
   "devDependencies": {

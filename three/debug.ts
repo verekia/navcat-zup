@@ -14,9 +14,9 @@ import type {
     PolyMesh,
     PolyMeshDetail,
     SearchNodePool
-} from 'navcat';
-import * as NavCat from 'navcat';
-import { DebugPrimitiveType } from 'navcat';
+} from 'navcat-zup';
+import * as NavCat from 'navcat-zup';
+import { DebugPrimitiveType } from 'navcat-zup';
 import * as THREE from 'three';
 
 export type DebugObject = {

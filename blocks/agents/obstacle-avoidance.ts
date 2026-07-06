@@ -193,54 +193,54 @@ export const addSegmentObstacle = (query: ObstacleAvoidanceQuery, p: Vec3, q: Ve
  * Helper function to calculate 2D triangle area.
  */
 const triArea2D = (a: Vec3, b: Vec3, c: Vec3): number => {
+    const aby = b[1] - a[1];
     const abx = b[0] - a[0];
-    const abz = b[2] - a[2];
+    const acy = c[1] - a[1];
     const acx = c[0] - a[0];
-    const acz = c[2] - a[2];
-    return acx * abz - abx * acz;
+    return acy * abx - aby * acx;
 };
 
 /**
  * Helper function to calculate 2D dot product.
  */
-const vdot2D = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[2] * b[2];
+const vdot2D = (a: Vec3, b: Vec3): number => a[1] * b[1] + a[0] * b[0];
 
 /**
  * Helper function to calculate 2D perpendicular dot product.
  */
-const vperp2D = (a: Vec3, b: Vec3): number => a[0] * b[2] - a[2] * b[0];
+const vperp2D = (a: Vec3, b: Vec3): number => a[1] * b[0] - a[0] * b[1];
 
 /**
  * Helper function to calculate 2D distance.
  */
 const vdist2D = (a: Vec3, b: Vec3): number => {
+    const dy = b[1] - a[1];
     const dx = b[0] - a[0];
-    const dz = b[2] - a[2];
-    return Math.sqrt(dx * dx + dz * dz);
+    return Math.sqrt(dy * dy + dx * dx);
 };
 
 /**
  * Helper function to calculate squared distance from point to segment in 2D.
  */
 const distancePtSegSqr2D = (pt: Vec3, p: Vec3, q: Vec3): number => {
+    const pqy = q[1] - p[1];
     const pqx = q[0] - p[0];
-    const pqz = q[2] - p[2];
+    const dy = pt[1] - p[1];
     const dx = pt[0] - p[0];
-    const dz = pt[2] - p[2];
 
-    const d = pqx * pqx + pqz * pqz;
-    let t = pqx * dx + pqz * dz;
+    const d = pqy * pqy + pqx * pqx;
+    let t = pqy * dy + pqx * dx;
     if (d > 0) t /= d;
     if (t < 0) t = 0;
     else if (t > 1) t = 1;
 
+    const nearestY = p[1] + t * pqy;
     const nearestX = p[0] + t * pqx;
-    const nearestZ = p[2] + t * pqz;
 
+    const distY = pt[1] - nearestY;
     const distX = pt[0] - nearestX;
-    const distZ = pt[2] - nearestZ;
 
-    return distX * distX + distZ * distZ;
+    return distY * distY + distX * distX;
 };
 
 const _sweepCircleCircle_s = vec3.create();
@@ -259,20 +259,20 @@ const sweepCircleCircle = (
     const EPS = 0.0001;
 
     const s = _sweepCircleCircle_s;
+    const sy = c1[1] - c0[1];
     const sx = c1[0] - c0[0];
-    const sz = c1[2] - c0[2];
+    s[1] = sy;
+    s[2] = 0;  // Not used, but keep vector valid
     s[0] = sx;
-    s[1] = 0;  // Not used, but keep vector valid
-    s[2] = sz;
     
     const r = r0 + r1;
     
     // vdot2D(s, s)
-    const sSqr = sx * sx + sz * sz;
+    const sSqr = sy * sy + sx * sx;
     const c = sSqr - r * r;
     
     // vdot2D(v, v)
-    const a = v[0] * v[0] + v[2] * v[2];
+    const a = v[1] * v[1] + v[0] * v[0];
     
     if (a < EPS) {
         out.hit = false;
@@ -282,7 +282,7 @@ const sweepCircleCircle = (
     }
 
     // vdot2D(v, s)
-    const b = v[0] * sx + v[2] * sz;
+    const b = v[1] * sy + v[0] * sx;
     const d = b * b - a * c;
     
     if (d < 0.0) {
@@ -371,13 +371,13 @@ const prepareObstacles = (query: ObstacleAvoidanceQuery, pos: Vec3, dvel: Vec3):
 
         const a = triArea2D(orig, cir.dp, dv);
         if (a < 0.01) {
-            cir.np[0] = -cir.dp[2];
-            cir.np[1] = 0;
-            cir.np[2] = cir.dp[0];
+            cir.np[1] = -cir.dp[0];
+            cir.np[2] = 0;
+            cir.np[0] = cir.dp[1];
         } else {
-            cir.np[0] = cir.dp[2];
-            cir.np[1] = 0;
-            cir.np[2] = -cir.dp[0];
+            cir.np[1] = cir.dp[0];
+            cir.np[2] = 0;
+            cir.np[0] = -cir.dp[1];
         }
     }
 
@@ -454,9 +454,9 @@ const processSample = (
         // vec3.sub(vab, vab, vel);
         // vec3.sub(vab, vab, cir.vel);
         const vab = _vab;
-        vab[0] = vcand[0] * 2 - vel[0] - cir.vel[0];
         vab[1] = vcand[1] * 2 - vel[1] - cir.vel[1];
         vab[2] = vcand[2] * 2 - vel[2] - cir.vel[2];
+        vab[0] = vcand[0] * 2 - vel[0] - cir.vel[0];
 
         // side bias
         side += Math.max(0, Math.min(1, Math.min(vdot2D(cir.dp, vab) * 0.5 + 0.5, vdot2D(cir.np, vab) * 2)));
@@ -493,7 +493,7 @@ const processSample = (
         if (seg.touch) {
             // special case when agent is very close to segment
             const sdir = vec3.set(_sdir, seg.q[0] - seg.p[0], seg.q[1] - seg.p[1], seg.q[2] - seg.p[2]);
-            const snorm = vec3.set(_snorm, -sdir[2], sdir[1], sdir[0]);
+            const snorm = vec3.set(_snorm, sdir[1], -sdir[0], sdir[2]);
 
             // if the velocity is pointing towards the segment, no collision.
             if (vdot2D(snorm, vcand) < 0.0) continue;
@@ -572,8 +572,8 @@ export const sampleVelocityGrid = (
         resetObstacleAvoidanceDebugData(debug);
     }
 
+    const cvy = dvel[1] * params.velBias;
     const cvx = dvel[0] * params.velBias;
-    const cvz = dvel[2] * params.velBias;
     const cs = (vmax * 2 * (1 - params.velBias)) / (params.gridSize - 1);
     const half = ((params.gridSize - 1) * cs) * 0.5;
 
@@ -587,11 +587,11 @@ export const sampleVelocityGrid = (
     for (let y = 0; y < params.gridSize; ++y) {
         for (let x = 0; x < params.gridSize; ++x) {
             const vcand = _sampleVelocityGrid_vcand;
-            vcand[0] = cvx + x * cs - half;
-            vcand[1] = 0;
-            vcand[2] = cvz + y * cs - half;
+            vcand[1] = cvy + x * cs - half;
+            vcand[2] = 0;
+            vcand[0] = cvx + y * cs - half;
 
-            if (vcand[0] * vcand[0] + vcand[2] * vcand[2] > vmaxSqr) {
+            if (vcand[1] * vcand[1] + vcand[0] * vcand[0] > vmaxSqr) {
                 continue;
             }
 
@@ -609,25 +609,25 @@ export const sampleVelocityGrid = (
 };
 
 /**
- * Normalize a 2D vector (ignoring Y component).
+ * Normalize a 2D vector (ignoring Z component).
  */
 const normalize2D = (v: Vec3): void => {
-    const d = Math.sqrt(v[0] * v[0] + v[2] * v[2]);
+    const d = Math.sqrt(v[1] * v[1] + v[0] * v[0]);
     if (d === 0) return;
     const invD = 1.0 / d;
+    v[1] *= invD;
     v[0] *= invD;
-    v[2] *= invD;
 };
 
 /**
- * Rotate a 2D vector (ignoring Y component).
+ * Rotate a 2D vector (ignoring Z component).
  */
 const rotate2D = (dest: Vec3, v: Vec3, ang: number): void => {
     const c = Math.cos(ang);
     const s = Math.sin(ang);
-    dest[0] = v[0] * c - v[2] * s;
-    dest[2] = v[0] * s + v[2] * c;
-    dest[1] = v[1];
+    dest[1] = v[1] * c - v[0] * s;
+    dest[0] = v[1] * s + v[0] * c;
+    dest[2] = v[2];
 };
 
 const _sampleVelocityAdaptive_ddir = vec3.create();
@@ -688,11 +688,11 @@ export const sampleVelocityAdaptive = (
 
     for (let j = 0; j < nrings; ++j) {
         const r = (nrings - j) / nrings;
-        // use pattern similar to C++: ddir[(j%2)*3] selects between ddir and ddir2
+        // use pattern similar to C++: ddir[(j%2)*3 + 1] selects between ddir and ddir2
         const baseDir = j % 2 === 0 ? ddir : ddir2;
         
-        pat[npat * 2] = baseDir[0] * r;
-        pat[npat * 2 + 1] = baseDir[2] * r;
+        pat[npat * 2] = baseDir[1] * r;
+        pat[npat * 2 + 1] = baseDir[0] * r;
         let last1 = npat * 2;    // Points to current element
         let last2 = last1;       // Both point to same location initially
         npat++;
@@ -721,9 +721,9 @@ export const sampleVelocityAdaptive = (
     // start sampling
     let cr = vmax * (1.0 - query.params.velBias);
     const res = _sampleVelocityAdaptive_res;
+    res[1] = dvel[1] * query.params.velBias;
+    res[2] = 0;
     res[0] = dvel[0] * query.params.velBias;
-    res[1] = 0;
-    res[2] = dvel[2] * query.params.velBias;
     
     let ns = 0;
     
@@ -741,11 +741,11 @@ export const sampleVelocityAdaptive = (
 
         for (let i = 0; i < npat; ++i) {
             const vcand = _sampleVelocityAdaptive_vcand;
-            vcand[0] = res[0] + pat[i * 2] * cr;
-            vcand[1] = 0;
-            vcand[2] = res[2] + pat[i * 2 + 1] * cr;
+            vcand[1] = res[1] + pat[i * 2] * cr;
+            vcand[2] = 0;
+            vcand[0] = res[0] + pat[i * 2 + 1] * cr;
 
-            if (vcand[0] * vcand[0] + vcand[2] * vcand[2] > vmaxSqr) {
+            if (vcand[1] * vcand[1] + vcand[0] * vcand[0] > vmaxSqr) {
                 continue;
             }
 

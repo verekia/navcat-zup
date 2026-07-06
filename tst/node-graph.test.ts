@@ -24,9 +24,9 @@ describe('node graph', () => {
         const navMeshPositions = [
             // quad vertices (indices 0-3)
             0, 0, 0,      // 0: bottom-left
-            2, 0, 0,      // 1: bottom-right
-            2, 0, 2,      // 2: top-right
-            0, 0, 2,      // 3: top-left
+            0, 2, 0,      // 1: bottom-right
+            2, 2, 0,      // 2: top-right
+            2, 0, 0,      // 3: top-left
         ];
 
         // biome-ignore format: readability
@@ -84,8 +84,8 @@ describe('node graph', () => {
 
         const navMesh = createNavMesh();
         navMesh.origin = [bounds[0], bounds[1], bounds[2]];
-        navMesh.tileWidth = bounds[3] - bounds[0];
-        navMesh.tileHeight = bounds[5] - bounds[2];
+        navMesh.tileWidth = bounds[4] - bounds[1];
+        navMesh.tileHeight = bounds[3] - bounds[0];
 
         // assert: no nodes or links yet
         expect(navMesh.nodes.length).toBe(0);
@@ -148,8 +148,8 @@ describe('node graph', () => {
         // no offmesh connections initially
         expect(Object.keys(navMesh.offMeshConnections).length).toBe(0);
 
-        const startPos: [number, number, number] = [1, 0, 1]; // Center of first quad
-        const endPos: [number, number, number] = [8, 0, 1]; // Center of second quad
+        const startPos: [number, number, number] = [1, 1, 0]; // Center of first quad
+        const endPos: [number, number, number] = [1, 8, 0]; // Center of second quad
 
         // add an offmesh connection from first platform to second platform
         const offMeshConnectionId = addOffMeshConnection(navMesh, {
@@ -231,8 +231,8 @@ describe('node graph', () => {
         const initialPolyNodes = Object.values(navMesh.nodes).filter((node) => node.allocated);
         expect(initialPolyNodes.length).toBe(4);
 
-        const startPos: [number, number, number] = [1, 0, 1]; // Center of first quad
-        const endPos: [number, number, number] = [8, 0, 1]; // Center of second quad
+        const startPos: [number, number, number] = [1, 1, 0]; // Center of first quad
+        const endPos: [number, number, number] = [1, 8, 0]; // Center of second quad
 
         // add a one-way offmesh connection (START_TO_END)
         const offMeshConnectionId = addOffMeshConnection(navMesh, {
@@ -310,22 +310,22 @@ describe('node graph', () => {
 
 function createOffMeshTestNavMesh(): NavMesh {
     // Create two disconnected quads (platforms)
-    // First quad: bottom-left platform at y=0
-    // Second quad: top-right platform at y=0 (separated by gap in x)
+    // First quad: bottom-left platform at z=0
+    // Second quad: top-right platform at z=0 (separated by gap in y)
 
     // biome-ignore format: readability
     const navMeshPositions = [
         // First quad vertices (indices 0-3)
         0, 0, 0,      // 0: bottom-left
-        2, 0, 0,      // 1: bottom-right
-        2, 0, 2,      // 2: top-right
-        0, 0, 2,      // 3: top-left
+        0, 2, 0,      // 1: bottom-right
+        2, 2, 0,      // 2: top-right
+        2, 0, 0,      // 3: top-left
         
-        // Second quad vertices (indices 4-7) - 5 units away on x-axis
-        7, 0, 0,      // 4: bottom-left
-        9, 0, 0,      // 5: bottom-right
-        9, 0, 2,      // 6: top-right
-        7, 0, 2,      // 7: top-left
+        // Second quad vertices (indices 4-7) - 5 units away on y-axis
+        0, 7, 0,      // 4: bottom-left
+        0, 9, 0,      // 5: bottom-right
+        2, 9, 0,      // 6: top-right
+        2, 7, 0,      // 7: top-left
     ];
 
     // biome-ignore format: readability
@@ -390,8 +390,8 @@ function createOffMeshTestNavMesh(): NavMesh {
 
     const navMesh = createNavMesh();
     navMesh.origin = [bounds[0], bounds[1], bounds[2]];
-    navMesh.tileWidth = bounds[3] - bounds[0];
-    navMesh.tileHeight = bounds[5] - bounds[2];
+    navMesh.tileWidth = bounds[4] - bounds[1];
+    navMesh.tileHeight = bounds[3] - bounds[0];
 
     addTile(navMesh, tile);
 
