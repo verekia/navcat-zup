@@ -26,6 +26,7 @@ import {
     NodeType,
     serNodeRef,
 } from './node';
+import { getPolyRefTile } from './poly-ref-tile';
 
 /**
  * Creates a new empty navigation mesh.
@@ -635,18 +636,6 @@ export const createGetClosestPointOnPolyResult = (): GetClosestPointOnPolyResult
 };
 
 const _getClosestPointOnPoly_getPolyHeightResult = createGetPolyHeightResult();
-
-/** The tile of a poly node ref, or undefined when the ref is not a poly of a loaded tile (as getTileAndPolyByRef). */
-const getPolyRefTile = (navMesh: NavMesh, nodeRef: NodeRef): NavMeshTile | undefined => {
-    if (getNodeRefType(nodeRef) !== NodeType.POLY) return undefined;
-
-    const node = navMesh.nodes[getNodeRefIndex(nodeRef)];
-    const tile = navMesh.tiles[node.tileId];
-
-    if (!tile || node.polyIndex >= tile.polys.length) return undefined;
-
-    return tile;
-};
 
 /** getClosestPointOnPoly once the tile and poly are known. Overwrites all of `result`. */
 const closestPointOnTilePoly = (
