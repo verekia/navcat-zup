@@ -2,7 +2,7 @@ import type { Vec2, Vec3 } from 'math';
 import { vec2, vec3 } from 'math';
 import { type Box3, box3 } from 'math/shapes';
 import { DETAIL_EDGE_BOUNDARY, POLY_NEIS_FLAG_EXT_LINK, POLY_NEIS_FLAG_EXT_LINK_DIR_MASK } from '../generate';
-import { closestHeightPointTriangle, createDistancePtSegSqr2dResult, distancePtSegSqr2d, pointInPoly } from '../geometry';
+import { createDistancePtSegSqr2dResult, distancePtSegSqr2d } from '../geometry';
 import { createIndexPool, releaseIndex, requestIndex } from '../index-pool';
 import { buildNavMeshBvTree } from './bv-tree';
 import {
@@ -301,6 +301,56 @@ export const getTileAndPolyByRef = (ref: NodeRef, navMesh: NavMesh): GetTileAndP
 
 const _getDetailMeshHeight_closest = vec3.create();
 
+const HEIGHT_EPS = 1e-6;
+
+/** closestHeightPointTriangle on scalars: the height at (px, py) inside triangle abc, or NaN outside it. */
+const triangleHeightAt = (
+    px: number,
+    py: number,
+    ax: number,
+    ay: number,
+    az: number,
+    bx: number,
+    by: number,
+    bz: number,
+    cx: number,
+    cy: number,
+    cz: number,
+): number => {
+    const v0y = cy - ay;
+    const v0z = cz - az;
+    const v0x = cx - ax;
+
+    const v1y = by - ay;
+    const v1z = bz - az;
+    const v1x = bx - ax;
+
+    const v2y = py - ay;
+    const v2x = px - ax;
+
+    // compute scaled barycentric coordinates
+    let denom = v0y * v1x - v0x * v1y;
+    if (Math.abs(denom) < HEIGHT_EPS) {
+        return NaN;
+    }
+
+    let u = v1x * v2y - v1y * v2x;
+    let v = v0y * v2x - v0x * v2y;
+
+    if (denom < 0) {
+        denom = -denom;
+        u = -u;
+        v = -v;
+    }
+
+    // if point lies inside the triangle, return interpolated z
+    if (u >= 0.0 && v >= 0.0 && u + v <= denom) {
+        return az + (v0z * u + v1z * v) / denom;
+    }
+
+    return NaN;
+};
+
 /**
  * Gets the height at a position inside a polygon using the detail mesh.
  * Assumes the position is already known to be inside the polygon (in XY).
@@ -316,30 +366,42 @@ const getDetailMeshHeight = (tile: NavMeshTile, poly: NavMeshPoly, polyIndex: nu
 
     // use detail mesh if available for more accurate height
     if (detailMesh) {
+        const detailTriangles = tile.detailTriangles;
+        const tileVertices = tile.vertices;
+        const detailVertices = tile.detailVertices;
+        const polyVertices = poly.vertices;
+        const nv = polyVertices.length;
+        const detailBase = detailMesh.verticesBase - nv;
+        const px = pos[0];
+        const py = pos[1];
+
         for (let j = 0; j < detailMesh.trianglesCount; ++j) {
             const t = (detailMesh.trianglesBase + j) * 4;
-            const detailTriangles = tile.detailTriangles;
 
-            // get triangle vertices
-            const v: Vec3[] = _getPolyHeight_triangle;
-            for (let k = 0; k < 3; ++k) {
-                const vertIndex = detailTriangles[t + k];
-                if (vertIndex < poly.vertices.length) {
-                    // use polygon vertex
-                    const polyVertIndex = poly.vertices[vertIndex] * 3;
-                    v[k][1] = tile.vertices[polyVertIndex + 1];
-                    v[k][2] = tile.vertices[polyVertIndex + 2];
-                    v[k][0] = tile.vertices[polyVertIndex];
-                } else {
-                    // use detail vertices
-                    const detailVertIndex = (detailMesh.verticesBase + (vertIndex - poly.vertices.length)) * 3;
-                    v[k][1] = tile.detailVertices[detailVertIndex + 1];
-                    v[k][2] = tile.detailVertices[detailVertIndex + 2];
-                    v[k][0] = tile.detailVertices[detailVertIndex];
-                }
-            }
+            // get triangle vertices: poly vertices first, then the poly's detail vertices
+            const ia = detailTriangles[t];
+            const ib = detailTriangles[t + 1];
+            const ic = detailTriangles[t + 2];
+            const va = ia < nv ? tileVertices : detailVertices;
+            const vb = ib < nv ? tileVertices : detailVertices;
+            const vc = ic < nv ? tileVertices : detailVertices;
+            const a = (ia < nv ? polyVertices[ia] : detailBase + ia) * 3;
+            const b = (ib < nv ? polyVertices[ib] : detailBase + ib) * 3;
+            const c = (ic < nv ? polyVertices[ic] : detailBase + ic) * 3;
 
-            const height = closestHeightPointTriangle(pos, v[0], v[1], v[2]);
+            const height = triangleHeightAt(
+                px,
+                py,
+                va[a],
+                va[a + 1],
+                va[a + 2],
+                vb[b],
+                vb[b + 1],
+                vb[b + 2],
+                vc[c],
+                vc[c + 1],
+                vc[c + 2],
+            );
 
             if (!Number.isNaN(height)) {
                 return height;
@@ -355,11 +417,62 @@ const getDetailMeshHeight = (tile: NavMeshTile, poly: NavMeshPoly, polyIndex: nu
     return _getDetailMeshHeight_closest[2];
 };
 
-const _getPolyHeight_a = vec3.create();
-const _getPolyHeight_b = vec3.create();
-const _getPolyHeight_c = vec3.create();
-const _getPolyHeight_triangle: [Vec3, Vec3, Vec3] = [_getPolyHeight_a, _getPolyHeight_b, _getPolyHeight_c];
-const _getPolyHeight_vertices: number[] = [];
+/** pointInPoly against a tile poly, reading its vertices in place. */
+const pointInTilePoly = (point: Vec3, tileVertices: number[], polyVertices: number[]): boolean => {
+    let inside = false;
+    const y = point[1];
+    const x = point[0];
+
+    for (let l = polyVertices.length, i = 0, j = l - 1; i < l; j = i++) {
+        const vj = polyVertices[j] * 3;
+        const vi = polyVertices[i] * 3;
+        const yj = tileVertices[vj + 1],
+            xj = tileVertices[vj],
+            yi = tileVertices[vi + 1],
+            xi = tileVertices[vi];
+        const where = (xi - xj) * (y - yi) - (yi - yj) * (x - xi);
+        if (xj < xi) {
+            if (x >= xj && x < xi) {
+                if (where === 0) {
+                    // point on the line
+                    return true;
+                }
+                if (where > 0) {
+                    if (x === xj) {
+                        // ray intersects vertex
+                        if (x > tileVertices[polyVertices[j === 0 ? l - 1 : j - 1] * 3]) {
+                            inside = !inside;
+                        }
+                    } else {
+                        inside = !inside;
+                    }
+                }
+            }
+        } else if (xi < xj) {
+            if (x > xi && x <= xj) {
+                if (where === 0) {
+                    // point on the line
+                    return true;
+                }
+                if (where < 0) {
+                    if (x === xj) {
+                        // ray intersects vertex
+                        if (x < tileVertices[polyVertices[j === 0 ? l - 1 : j - 1] * 3]) {
+                            inside = !inside;
+                        }
+                    } else {
+                        inside = !inside;
+                    }
+                }
+            }
+        } else if (x === xi && ((y >= yj && y <= yi) || (y >= yi && y <= yj))) {
+            // point on horizontal edge
+            return true;
+        }
+    }
+
+    return inside;
+};
 
 export type GetPolyHeightResult = {
     success: boolean;
@@ -390,18 +503,8 @@ export const getPolyHeight = (
     result.success = false;
     result.height = 0;
 
-    // build polygon vertices array
-    const nv = poly.vertices.length;
-    const vertices = _getPolyHeight_vertices;
-    for (let i = 0; i < nv; ++i) {
-        const start = poly.vertices[i] * 3;
-        vertices[i * 3 + 1] = tile.vertices[start + 1];
-        vertices[i * 3 + 2] = tile.vertices[start + 2];
-        vertices[i * 3] = tile.vertices[start];
-    }
-
     // check if point is inside polygon
-    if (!pointInPoly(pos, vertices, nv)) {
+    if (!pointInTilePoly(pos, tile.vertices, poly.vertices)) {
         return result;
     }
 
@@ -625,6 +728,15 @@ export const getClosestPointOnPolyBoundary = (out: Vec3, navMesh: NavMesh, nodeR
     const lineStart = _closestPointOnPolyBoundary_lineStart;
     const lineEnd = _closestPointOnPolyBoundary_lineEnd;
 
+    // if inside polygon (XY), return the point with Z adjusted to polygon surface
+    if (pointInTilePoly(point, tile.vertices, poly.vertices)) {
+        out[1] = point[1];
+        out[0] = point[0];
+        out[2] = getDetailMeshHeight(tile, poly, polyIndex, point);
+
+        return true;
+    }
+
     // collect vertices
     const verticesCount = poly.vertices.length;
     const vertices = _closestPointOnPolyBoundary_vertices;
@@ -633,15 +745,6 @@ export const getClosestPointOnPolyBoundary = (out: Vec3, navMesh: NavMesh, nodeR
         vertices[i * 3 + 1] = tile.vertices[vIndex + 1];
         vertices[i * 3 + 2] = tile.vertices[vIndex + 2];
         vertices[i * 3] = tile.vertices[vIndex];
-    }
-
-    // if inside polygon (XY), return the point with Z adjusted to polygon surface
-    if (pointInPoly(point, vertices, verticesCount)) {
-        out[1] = point[1];
-        out[0] = point[0];
-        out[2] = getDetailMeshHeight(tile, poly, polyIndex, point);
-
-        return true;
     }
 
     // otherwise clamp to nearest edge
