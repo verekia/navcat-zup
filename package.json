@@ -36,12 +36,13 @@
         "format": "biome format --write src/.",
         "lint": "biome lint --write src/.",
         "docs": "cd docs && node ./build.js",
+        "bench": "pnpm --filter bench exec labs",
         "typedoc": "typedoc --tsconfig ./tsconfig.json --name \"navcat-zup docs\" --out ./dist-typedoc ./src/index.ts ./blocks/index.ts ./three/index.ts",
         "test": "vitest"
     },
     "packageManager": "pnpm@8.15.2+sha1.798034f615aa211c6c2ae00010cc20be5fc102ee",
     "dependencies": {
-        "mathcat": "0.0.12"
+        "math": "^0.1.0"
     },
     "peerDependencies": {
         "three": ">=0.180.0"

@@ -1,5 +1,5 @@
 import { GUI } from 'lil-gui';
-import type { Vec3 } from 'mathcat';
+import type { Vec3 } from 'math';
 import { createFindNearestPolyResult, DEFAULT_QUERY_FILTER, findNearestPoly, moveAlongSurface } from 'navcat-zup';
 import { generateSoloNavMesh, type SoloNavMeshInput, type SoloNavMeshOptions } from 'navcat-zup/blocks';
 import { createNavMeshHelper, getPositionsAndIndices } from 'navcat-zup/three';

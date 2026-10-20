@@ -1,4 +1,5 @@
-import { createMulberry32Generator, type Vec3, vec3 } from 'mathcat';
+import { type Vec3, vec3 } from 'math';
+import { mulberry32 } from 'math/random';
 import {
     addOffMeshConnection,
     createFindNearestPolyResult,
@@ -19,7 +20,8 @@ import { loadGLTF } from './load-gltf';
 // the world is z-up: ground plane is XY, +Z is up
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
-const random = createMulberry32Generator(42);
+const randomState = mulberry32.create(42);
+const random = () => mulberry32.sample(randomState);
 
 /* setup example scene */
 const container = document.getElementById('root')!;

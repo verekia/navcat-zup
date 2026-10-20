@@ -9,6 +9,11 @@
 - Package renamed from `navcat` to `navcat-zup` (entrypoints: `navcat-zup`, `navcat-zup/blocks`, `navcat-zup/three`)
 - Versions below track the upstream navcat releases this fork is based on
 
+## 0.5.0 (Unreleased)
+
+- feat: update mathcat to v0.1.0
+- feat: replace `mathcat` dependency with the API-compatible `math` package (canary)
+
 ## 0.4.1
 
 - fix: reorder 'types' and 'import' in package.json 'exports'
