@@ -9,7 +9,7 @@ import {
     randomPointInConvexPoly,
     triArea2D,
 } from '../geometry';
-import type { NavMesh, NavMeshLink, NavMeshPoly, NavMeshTile } from './nav-mesh';
+import type { NavMesh, NavMeshLink, NavMeshNode, NavMeshPoly, NavMeshTile } from './nav-mesh';
 import type { QueryFilter } from './nav-mesh-api';
 import {
     createGetClosestPointOnPolyResult,
@@ -22,7 +22,8 @@ import {
     getTileAndPolyByRef,
     isValidNodeRef,
 } from './nav-mesh-api';
-import { getNodeRefType, INVALID_NODE_REF, type NodeRef, NodeType } from './node';
+import { getNodeRefIndex, getNodeRefType, INVALID_NODE_REF, type NodeRef, NodeType } from './node';
+import { getPolyRefTile } from './poly-ref-tile';
 
 export const NODE_FLAG_OPEN = 0x01;
 export const NODE_FLAG_CLOSED = 0x02;
@@ -141,9 +142,6 @@ export const reindexNodeInQueue = (queue: SearchNodeQueue, node: SearchNode): vo
     }
 };
 
-const _getPortalPoints_start = vec3.create();
-const _getPortalPoints_end = vec3.create();
-
 /**
  * Retrieves the left and right points of the portal edge between two adjacent polygons.
  * Or if one of the polygons is an off-mesh connection, returns the connection endpoint for both left and right.
@@ -156,89 +154,96 @@ export const getPortalPoints = (
     outRight: Vec3,
 ): boolean => {
     // find the link that points to the 'to' polygon.
-    let toLink: NavMeshLink | undefined;
-
     const fromNode = getNodeByRef(navMesh, fromNodeRef);
+    const fromNodeLinks = fromNode.links;
+    const links = navMesh.links;
 
-    for (const linkIndex of fromNode.links) {
-        const link = navMesh.links[linkIndex];
+    for (let i = 0; i < fromNodeLinks.length; i++) {
+        const link = links[fromNodeLinks[i]];
 
         if (link.toNodeRef === toNodeRef) {
-            // found the link to the target polygon.
-            toLink = link;
-            break;
+            return getLinkPortalPoints(navMesh, fromNodeRef, fromNode, link, outLeft, outRight);
         }
     }
 
-    if (!toLink) {
-        // no link found to the target polygon.
-        return false;
-    }
+    // no link found to the target polygon.
+    return false;
+};
 
+/** getPortalPoints once the link to the 'to' node is known. */
+const getLinkPortalPoints = (
+    navMesh: NavMesh,
+    fromNodeRef: NodeRef,
+    fromNode: NavMeshNode,
+    link: NavMeshLink,
+    outLeft: Vec3,
+    outRight: Vec3,
+): boolean => {
     const fromNodeType = getNodeRefType(fromNodeRef);
-    const toNodeType = getNodeRefType(toNodeRef);
+    const toNodeType = getNodeRefType(link.toNodeRef);
 
     // handle from poly to poly
     if (fromNodeType === NodeType.POLY && toNodeType === NodeType.POLY) {
-        // get the 'from' and 'to' tiles
-        const { tileId: fromTileId, polyIndex: fromPolyIndex } = getNodeByRef(navMesh, fromNodeRef);
-        const fromTile = navMesh.tiles[fromTileId];
-        const fromPoly = fromTile.polys[fromPolyIndex];
+        const fromTile = navMesh.tiles[fromNode.tileId];
+        const polyVertices = fromTile.polys[fromNode.polyIndex].vertices;
+        const vertices = fromTile.vertices;
 
         // find portal vertices
-        const v0Index = fromPoly.vertices[toLink.edge];
-        const v1Index = fromPoly.vertices[(toLink.edge + 1) % fromPoly.vertices.length];
-        const v0Offset = v0Index * 3;
-        const v1Offset = v1Index * 3;
+        const v0 = polyVertices[link.edge] * 3;
+        const v1 = polyVertices[(link.edge + 1) % polyVertices.length] * 3;
 
         // if the link is at tile boundary, clamp the vertices to the link width.
-        if (toLink.side !== 0xff && (toLink.bmin !== 0 || toLink.bmax !== 255)) {
+        if (link.side !== 0xff && (link.bmin !== 0 || link.bmax !== 255)) {
             // unpack portal limits and lerp
             const s = 1.0 / 255.0;
-            const tmin = toLink.bmin * s;
-            const tmax = toLink.bmax * s;
+            const tmin = link.bmin * s;
+            const tmax = link.bmax * s;
+            const ax = vertices[v0];
+            const ay = vertices[v0 + 1];
+            const az = vertices[v0 + 2];
+            const dx = vertices[v1] - ax;
+            const dy = vertices[v1 + 1] - ay;
+            const dz = vertices[v1 + 2] - az;
 
-            vec3.fromBuffer(_getPortalPoints_start, fromTile.vertices, v0Offset);
-            vec3.fromBuffer(_getPortalPoints_end, fromTile.vertices, v1Offset);
-            vec3.lerp(outLeft, _getPortalPoints_start, _getPortalPoints_end, tmin);
-            vec3.lerp(outRight, _getPortalPoints_start, _getPortalPoints_end, tmax);
+            outLeft[0] = ax + tmin * dx;
+            outLeft[1] = ay + tmin * dy;
+            outLeft[2] = az + tmin * dz;
+            outRight[0] = ax + tmax * dx;
+            outRight[1] = ay + tmax * dy;
+            outRight[2] = az + tmax * dz;
         } else {
             // no clamping needed - direct copy
-            vec3.fromBuffer(outLeft, fromTile.vertices, v0Offset);
-            vec3.fromBuffer(outRight, fromTile.vertices, v1Offset);
+            outLeft[0] = vertices[v0];
+            outLeft[1] = vertices[v0 + 1];
+            outLeft[2] = vertices[v0 + 2];
+            outRight[0] = vertices[v1];
+            outRight[1] = vertices[v1 + 1];
+            outRight[2] = vertices[v1 + 2];
         }
 
         return true;
     }
 
-    // handle from poly to offmesh connection
+    let offMeshConnectionId: number;
     if (fromNodeType === NodeType.POLY && toNodeType === NodeType.OFFMESH) {
-        const toNode = getNodeByRef(navMesh, toNodeRef);
-        const offMeshConnection = navMesh.offMeshConnections[toNode.offMeshConnectionId];
-        if (!offMeshConnection) return false;
-
-        const position = toLink && toLink.edge === 0 ? offMeshConnection.start : offMeshConnection.end;
-
-        vec3.copy(outLeft, position);
-        vec3.copy(outRight, position);
-
-        return true;
+        // handle from poly to offmesh connection
+        offMeshConnectionId = getNodeByRef(navMesh, link.toNodeRef).offMeshConnectionId;
+    } else if (fromNodeType === NodeType.OFFMESH && toNodeType === NodeType.POLY) {
+        // handle from offmesh connection to poly
+        offMeshConnectionId = fromNode.offMeshConnectionId;
+    } else {
+        return false;
     }
 
-    // handle from offmesh connection to poly
-    if (fromNodeType === NodeType.OFFMESH && toNodeType === NodeType.POLY) {
-        const offMeshConnection = navMesh.offMeshConnections[fromNode.offMeshConnectionId];
-        if (!offMeshConnection) return false;
+    const offMeshConnection = navMesh.offMeshConnections[offMeshConnectionId];
+    if (!offMeshConnection) return false;
 
-        const position = toLink && toLink.edge === 0 ? offMeshConnection.start : offMeshConnection.end;
+    const position = link.edge === 0 ? offMeshConnection.start : offMeshConnection.end;
 
-        vec3.copy(outLeft, position);
-        vec3.copy(outRight, position);
+    vec3.copy(outLeft, position);
+    vec3.copy(outRight, position);
 
-        return true;
-    }
-
-    return false;
+    return true;
 };
 
 const _edgeMidPointPortalLeft = vec3.create();
@@ -254,6 +259,60 @@ export const getEdgeMidPoint = (navMesh: NavMesh, fromNodeRef: NodeRef, toNodeRe
     outMidPoint[0] = (_edgeMidPointPortalLeft[0] + _edgeMidPointPortalRight[0]) * 0.5;
 
     return true;
+};
+
+/**
+ * Same result as getEdgeMidPoint for the first link from `fromNode` to `link.toNodeRef`,
+ * without searching the links of `fromNode` again.
+ */
+const getLinkMidPoint = (navMesh: NavMesh, fromNodeRef: NodeRef, fromNode: NavMeshNode, link: NavMeshLink, out: Vec3): void => {
+    const fromNodeType = getNodeRefType(fromNodeRef);
+    const toNodeType = getNodeRefType(link.toNodeRef);
+
+    if (fromNodeType === NodeType.POLY && toNodeType === NodeType.POLY) {
+        const tile = navMesh.tiles[fromNode.tileId];
+        const polyVertices = tile.polys[fromNode.polyIndex].vertices;
+        const vertices = tile.vertices;
+        const a = polyVertices[link.edge] * 3;
+        const b = polyVertices[(link.edge + 1) % polyVertices.length] * 3;
+
+        if (link.side !== 0xff && (link.bmin !== 0 || link.bmax !== 255)) {
+            const s = 1.0 / 255.0;
+            const tmin = link.bmin * s;
+            const tmax = link.bmax * s;
+            const ax = vertices[a];
+            const ay = vertices[a + 1];
+            const az = vertices[a + 2];
+            const dx = vertices[b] - ax;
+            const dy = vertices[b + 1] - ay;
+            const dz = vertices[b + 2] - az;
+            out[0] = (ax + tmin * dx + (ax + tmax * dx)) * 0.5;
+            out[1] = (ay + tmin * dy + (ay + tmax * dy)) * 0.5;
+            out[2] = (az + tmin * dz + (az + tmax * dz)) * 0.5;
+        } else {
+            out[0] = (vertices[a] + vertices[b]) * 0.5;
+            out[1] = (vertices[a + 1] + vertices[b + 1]) * 0.5;
+            out[2] = (vertices[a + 2] + vertices[b + 2]) * 0.5;
+        }
+        return;
+    }
+
+    let offMeshConnectionId: number;
+    if (fromNodeType === NodeType.POLY && toNodeType === NodeType.OFFMESH) {
+        offMeshConnectionId = getNodeByRef(navMesh, link.toNodeRef).offMeshConnectionId;
+    } else if (fromNodeType === NodeType.OFFMESH && toNodeType === NodeType.POLY) {
+        offMeshConnectionId = fromNode.offMeshConnectionId;
+    } else {
+        return;
+    }
+
+    const offMeshConnection = navMesh.offMeshConnections[offMeshConnectionId];
+    if (!offMeshConnection) return;
+
+    const position = link.edge === 0 ? offMeshConnection.start : offMeshConnection.end;
+    out[0] = (position[0] + position[0]) * 0.5;
+    out[1] = (position[1] + position[1]) * 0.5;
+    out[2] = (position[2] + position[2]) * 0.5;
 };
 
 export enum FindNodePathResultFlags {
@@ -305,6 +364,106 @@ export type FindNodePathOptions = {
  * @param options Optional configuration for the pathfinding operation.
  * @returns The result of the pathfinding operation.
  */
+const _linkMidPoint = vec3.create();
+
+/**
+ * Search nodes of a findNodePath call, at node index * 4 + crossing state (0-3).
+ * Reused across calls: a slot belongs to the current search when its stamp equals the epoch.
+ */
+type SearchNodeSlots = {
+    epoch: number;
+    stamps: Int32Array;
+    nodes: (SearchNode | undefined)[];
+    inUse: boolean;
+};
+
+const createSearchNodeSlots = (): SearchNodeSlots => ({ epoch: 0, stamps: new Int32Array(0), nodes: [], inUse: false });
+
+const _searchNodeSlots = createSearchNodeSlots();
+
+const acquireSearchNodeSlots = (navMesh: NavMesh): SearchNodeSlots => {
+    // a filter callback that runs a search of its own gets fresh slots
+    const slots = _searchNodeSlots.inUse ? createSearchNodeSlots() : _searchNodeSlots;
+    const size = navMesh.nodes.length * 4;
+
+    if (slots.stamps.length < size) {
+        slots.stamps = new Int32Array(size);
+        slots.nodes = new Array(size).fill(undefined);
+    }
+
+    if (slots.epoch === 0x7fffffff) {
+        slots.stamps.fill(0);
+        slots.epoch = 0;
+    }
+
+    slots.epoch++;
+    slots.inUse = true;
+
+    return slots;
+};
+
+const releaseSearchNodeSlots = (slots: SearchNodeSlots, searchNodes: SearchNode[]): void => {
+    const nodes = slots.nodes;
+    for (let i = 0; i < searchNodes.length; i++) {
+        const node = searchNodes[i];
+        nodes[searchNodeKey(node.nodeRef, node.state)] = undefined;
+    }
+    slots.inUse = false;
+};
+
+const searchNodeKey = (nodeRef: NodeRef, state: number): number => getNodeRefIndex(nodeRef) * 4 + state;
+
+/** A findNodePath result whose `nodes` pool is built on first access. */
+class FindNodePathResultWithLazyNodes implements FindNodePathResult {
+    flags: FindNodePathResultFlags;
+    success: boolean;
+    path: NodeRef[];
+    openList: SearchNodeQueue;
+    #searchNodes: SearchNode[];
+    #nodes: SearchNodePool | undefined;
+
+    constructor(
+        flags: FindNodePathResultFlags,
+        success: boolean,
+        path: NodeRef[],
+        searchNodes: SearchNode[],
+        openList: SearchNodeQueue,
+    ) {
+        this.flags = flags;
+        this.success = success;
+        this.path = path;
+        this.openList = openList;
+        this.#searchNodes = searchNodes;
+        this.#nodes = undefined;
+    }
+
+    get nodes(): SearchNodePool {
+        if (!this.#nodes) {
+            const nodes: SearchNodePool = {};
+            const searchNodes = this.#searchNodes;
+            for (let i = 0; i < searchNodes.length; i++) addSearchNode(nodes, searchNodes[i]);
+            this.#nodes = nodes;
+        }
+        return this.#nodes;
+    }
+
+    set nodes(value: SearchNodePool) {
+        this.#nodes = value;
+    }
+
+    toJSON(): FindNodePathResult {
+        return { flags: this.flags, success: this.success, path: this.path, nodes: this.nodes, openList: this.openList };
+    }
+}
+
+const createFindNodePathResult = (
+    flags: FindNodePathResultFlags,
+    success: boolean,
+    path: NodeRef[],
+    searchNodes: SearchNode[],
+    openList: SearchNodeQueue,
+): FindNodePathResult => new FindNodePathResultWithLazyNodes(flags, success, path, searchNodes, openList);
+
 export const findNodePath = (
     navMesh: NavMesh,
     startNodeRef: NodeRef,
@@ -314,8 +473,7 @@ export const findNodePath = (
     filter: QueryFilter,
     options?: FindNodePathOptions,
 ): FindNodePathResult => {
-    const raycastDistance = options?.raycastDistance ?? 0;
-    const nodes: SearchNodePool = {};
+    const searchNodes: SearchNode[] = [];
     const openList: SearchNodeQueue = [];
 
     // validate input
@@ -325,28 +483,97 @@ export const findNodePath = (
         !vec3.finite(startPosition) ||
         !vec3.finite(endPosition)
     ) {
-        return {
-            flags: FindNodePathResultFlags.NONE | FindNodePathResultFlags.INVALID_INPUT,
-            success: false,
-            path: [],
-            nodes,
+        return createFindNodePathResult(
+            FindNodePathResultFlags.NONE | FindNodePathResultFlags.INVALID_INPUT,
+            false,
+            [],
+            searchNodes,
             openList,
-        };
+        );
     }
 
     // early exit if start and end are the same
     if (startNodeRef === endNodeRef) {
-        return {
-            flags: FindNodePathResultFlags.SUCCESS | FindNodePathResultFlags.COMPLETE_PATH,
-            success: true,
-            path: [startNodeRef],
-            nodes,
+        return createFindNodePathResult(
+            FindNodePathResultFlags.SUCCESS | FindNodePathResultFlags.COMPLETE_PATH,
+            true,
+            [startNodeRef],
+            searchNodes,
             openList,
-        };
+        );
     }
 
-    // prepare search
+    const slots = acquireSearchNodeSlots(navMesh);
+    try {
+        const lastBestNode = searchNodePath(
+            navMesh,
+            slots,
+            searchNodes,
+            openList,
+            startNodeRef,
+            endNodeRef,
+            startPosition,
+            endPosition,
+            filter,
+            options?.raycastDistance ?? 0,
+        );
+
+        // assemble the path to the node
+        const path: NodeRef[] = [];
+        let currentNode: SearchNode | undefined = lastBestNode;
+
+        while (currentNode) {
+            path.push(currentNode.nodeRef);
+
+            if (currentNode.parentNodeRef !== null && currentNode.parentState !== null) {
+                const key = searchNodeKey(currentNode.parentNodeRef, currentNode.parentState);
+                currentNode = slots.stamps[key] === slots.epoch ? slots.nodes[key] : undefined;
+            } else {
+                currentNode = undefined;
+            }
+        }
+
+        path.reverse();
+
+        // if the end node was not reached, return with the partial result status
+        if (lastBestNode.nodeRef !== endNodeRef) {
+            return createFindNodePathResult(FindNodePathResultFlags.PARTIAL_PATH, true, path, searchNodes, openList);
+        }
+
+        // the path is complete, return with the complete path status
+        return createFindNodePathResult(
+            FindNodePathResultFlags.SUCCESS | FindNodePathResultFlags.COMPLETE_PATH,
+            true,
+            path,
+            searchNodes,
+            openList,
+        );
+    } finally {
+        releaseSearchNodeSlots(slots, searchNodes);
+    }
+};
+
+/** The A* loop of findNodePath. Returns the node reached, or the one nearest the end. */
+const searchNodePath = (
+    navMesh: NavMesh,
+    slots: SearchNodeSlots,
+    searchNodes: SearchNode[],
+    openList: SearchNodeQueue,
+    startNodeRef: NodeRef,
+    endNodeRef: NodeRef,
+    startPosition: Vec3,
+    endPosition: Vec3,
+    filter: QueryFilter,
+    raycastDistance: number,
+): SearchNode => {
     const getCost = filter.getCost;
+    const links = navMesh.links;
+    const endX = endPosition[0];
+    const endY = endPosition[1];
+    const endZ = endPosition[2];
+    const epoch = slots.epoch;
+    const stamps = slots.stamps;
+    const slotNodes = slots.nodes;
 
     const startNode: SearchNode = {
         cost: 0,
@@ -359,7 +586,10 @@ export const findNodePath = (
         position: [startPosition[0], startPosition[1], startPosition[2]],
     };
 
-    addSearchNode(nodes, startNode);
+    const startKey = searchNodeKey(startNodeRef, 0);
+    stamps[startKey] = epoch;
+    slotNodes[startKey] = startNode;
+    searchNodes.push(startNode);
     pushNodeToQueue(openList, startNode);
 
     let lastBestNode: SearchNode = startNode;
@@ -381,13 +611,14 @@ export const findNodePath = (
 
         // get best node
         const bestNode = getNodeByRef(navMesh, bestNodeRef);
+        const bestNodeLinks = bestNode.links;
 
         // get parent node ref
         const parentNodeRef = bestSearchNode.parentNodeRef ?? undefined;
 
         // expand the search with node links
-        for (const linkIndex of bestNode.links) {
-            const link = navMesh.links[linkIndex];
+        for (let l = 0; l < bestNodeLinks.length; l++) {
+            const link = links[bestNodeLinks[l]];
             const neighbourNodeRef = link.toNodeRef;
 
             // do not expand back to where we came from
@@ -407,8 +638,15 @@ export const findNodePath = (
             }
 
             // get the neighbour node
-            let neighbourSearchNode = getSearchNode(nodes, neighbourNodeRef, state);
+            const neighbourKey = searchNodeKey(neighbourNodeRef, state);
+            let neighbourSearchNode = stamps[neighbourKey] === epoch ? slotNodes[neighbourKey] : undefined;
             if (!neighbourSearchNode) {
+                const midPoint = _linkMidPoint;
+                midPoint[0] = 0;
+                midPoint[1] = 0;
+                midPoint[2] = 0;
+                getLinkMidPoint(navMesh, bestNodeRef, bestNode, link, midPoint);
+
                 neighbourSearchNode = {
                     cost: 0,
                     total: 0,
@@ -417,12 +655,12 @@ export const findNodePath = (
                     nodeRef: neighbourNodeRef,
                     state,
                     flags: 0,
-                    position: [0, 0, 0],
+                    position: [midPoint[0], midPoint[1], midPoint[2]],
                 };
 
-                addSearchNode(nodes, neighbourSearchNode);
-
-                getEdgeMidPoint(navMesh, bestNodeRef, neighbourNodeRef, neighbourSearchNode.position);
+                stamps[neighbourKey] = epoch;
+                slotNodes[neighbourKey] = neighbourSearchNode;
+                searchNodes.push(neighbourSearchNode);
             }
 
             // calculate cost and heuristic
@@ -439,7 +677,8 @@ export const findNodePath = (
                 bestSearchNode.parentState !== null
             ) {
                 // get grandparent node for potential raycast shortcut
-                const grandparentNode = getSearchNode(nodes, parentNodeRef, bestSearchNode.parentState);
+                const grandparentKey = searchNodeKey(parentNodeRef, bestSearchNode.parentState);
+                const grandparentNode = stamps[grandparentKey] === epoch ? slotNodes[grandparentKey] : undefined;
 
                 if (grandparentNode) {
                     const rayLength = vec3.distance(grandparentNode.position, neighbourSearchNode.position);
@@ -490,7 +729,11 @@ export const findNodePath = (
                 cost = cost + endCost;
                 heuristic = 0;
             } else {
-                heuristic = vec3.distance(neighbourSearchNode.position, endPosition) * HEURISTIC_SCALE;
+                const position = neighbourSearchNode.position;
+                const x = endX - position[0];
+                const y = endY - position[1];
+                const z = endZ - position[2];
+                heuristic = Math.sqrt(x * x + y * y + z * z) * HEURISTIC_SCALE;
             }
 
             const total = cost + heuristic;
@@ -535,41 +778,7 @@ export const findNodePath = (
         }
     }
 
-    // assemble the path to the node
-    const path: NodeRef[] = [];
-    let currentNode: SearchNode | null = lastBestNode;
-
-    while (currentNode) {
-        path.push(currentNode.nodeRef);
-
-        if (currentNode.parentNodeRef !== null && currentNode.parentState !== null) {
-            currentNode = getSearchNode(nodes, currentNode.parentNodeRef, currentNode.parentState) ?? null;
-        } else {
-            currentNode = null;
-        }
-    }
-
-    path.reverse();
-
-    // if the end node was not reached, return with the partial result status
-    if (lastBestNode.nodeRef !== endNodeRef) {
-        return {
-            flags: FindNodePathResultFlags.PARTIAL_PATH,
-            success: true,
-            path,
-            nodes,
-            openList,
-        };
-    }
-
-    // the path is complete, return with the complete path status
-    return {
-        flags: FindNodePathResultFlags.SUCCESS | FindNodePathResultFlags.COMPLETE_PATH,
-        success: true,
-        path,
-        nodes,
-        openList,
-    };
+    return lastBestNode;
 };
 
 export enum SlicedFindNodePathStatusFlags {
@@ -1201,7 +1410,33 @@ export const moveAlongSurface = (
 
     result.success = true;
 
-    const nodes: SearchNodePool = {};
+    const searchNodes: SearchNode[] = [];
+    const slots = acquireSearchNodeSlots(navMesh);
+
+    try {
+        moveAlongSurfaceSearch(navMesh, slots, searchNodes, startNodeRef, startPosition, endPosition, filter, result);
+    } finally {
+        releaseSearchNodeSlots(slots, searchNodes);
+    }
+
+    return result;
+};
+
+/** The breadth-first search of moveAlongSurface, writing its outcome into `result`. */
+const moveAlongSurfaceSearch = (
+    navMesh: NavMesh,
+    slots: SearchNodeSlots,
+    searchNodes: SearchNode[],
+    startNodeRef: NodeRef,
+    startPosition: Vec3,
+    endPosition: Vec3,
+    filter: QueryFilter,
+    result: MoveAlongSurfaceResult,
+): void => {
+    const epoch = slots.epoch;
+    const stamps = slots.stamps;
+    const slotNodes = slots.nodes;
+    const links = navMesh.links;
 
     const startNode: SearchNode = {
         cost: 0,
@@ -1214,7 +1449,10 @@ export const moveAlongSurface = (
         position: [startPosition[0], startPosition[1], startPosition[2]],
     };
 
-    addSearchNode(nodes, startNode);
+    const startKey = searchNodeKey(startNodeRef, 0);
+    stamps[startKey] = epoch;
+    slotNodes[startKey] = startNode;
+    searchNodes.push(startNode);
 
     const bestPos = vec3.clone(startPosition);
     let bestDist = Infinity;
@@ -1227,17 +1465,23 @@ export const moveAlongSurface = (
 
     // breadth-first search queue (no priority needed for this algorithm)
     const queue: SearchNodeQueue = [startNode];
+    let queueHead = 0;
 
-    while (queue.length > 0) {
-        const curNode = queue.shift()!;
+    // neighbours across the current edge
+    const neis: NodeRef[] = [];
+
+    while (queueHead < queue.length) {
+        const curNode = queue[queueHead++];
 
         // get poly and tile
         const curRef = curNode.nodeRef;
-        const tileAndPoly = getTileAndPolyByRef(curRef, navMesh);
+        const tile = getPolyRefTile(navMesh, curRef);
 
-        if (!tileAndPoly.success) continue;
+        if (!tile) continue;
 
-        const { tile, poly } = tileAndPoly;
+        const node = navMesh.nodes[getNodeRefIndex(curRef)];
+        const poly = tile.polys[node.polyIndex];
+        const nodeLinks = node.links;
 
         // collect vertices
         const nv = poly.vertices.length;
@@ -1259,11 +1503,10 @@ export const moveAlongSurface = (
         // find wall edges and find nearest point inside the walls
         for (let i = 0, j = nv - 1; i < nv; j = i++) {
             // find links to neighbours
-            const neis: NodeRef[] = [];
-            const node = getNodeByRef(navMesh, curRef);
+            neis.length = 0;
 
-            for (const linkIndex of node.links) {
-                const link = navMesh.links[linkIndex];
+            for (let l = 0; l < nodeLinks.length; l++) {
+                const link = links[nodeLinks[l]];
                 if (!link) continue;
 
                 const neighbourRef = link.toNodeRef;
@@ -1293,8 +1536,10 @@ export const moveAlongSurface = (
                     bestNode = curNode;
                 }
             } else {
-                for (const neighbourRef of neis) {
-                    let neighbourNode = getSearchNode(nodes, neighbourRef, 0);
+                for (let n = 0; n < neis.length; n++) {
+                    const neighbourRef = neis[n];
+                    const neighbourKey = searchNodeKey(neighbourRef, 0);
+                    let neighbourNode = stamps[neighbourKey] === epoch ? slotNodes[neighbourKey] : undefined;
 
                     if (!neighbourNode) {
                         neighbourNode = {
@@ -1307,7 +1552,9 @@ export const moveAlongSurface = (
                             flags: 0,
                             position: [endPosition[0], endPosition[1], endPosition[2]],
                         };
-                        addSearchNode(nodes, neighbourNode);
+                        stamps[neighbourKey] = epoch;
+                        slotNodes[neighbourKey] = neighbourNode;
+                        searchNodes.push(neighbourNode);
                     }
 
                     // skip if already visited
@@ -1332,14 +1579,15 @@ export const moveAlongSurface = (
     }
 
     if (bestNode) {
-        let currentNode: SearchNode | null = bestNode;
+        let currentNode: SearchNode | undefined = bestNode;
         while (currentNode) {
             result.visited.push(currentNode.nodeRef);
 
             if (currentNode.parentNodeRef !== null) {
-                currentNode = getSearchNode(nodes, currentNode.parentNodeRef, 0) ?? null;
+                const key = searchNodeKey(currentNode.parentNodeRef, 0);
+                currentNode = stamps[key] === epoch ? slotNodes[key] : undefined;
             } else {
-                currentNode = null;
+                currentNode = undefined;
             }
         }
 
@@ -1349,14 +1597,15 @@ export const moveAlongSurface = (
         result.nodeRef = bestNode.nodeRef;
 
         // fixup height with getPolyHeight
-        const tileAndPoly = getTileAndPolyByRef(result.nodeRef, navMesh);
+        const tile = getPolyRefTile(navMesh, result.nodeRef);
 
-        if (tileAndPoly.success) {
+        if (tile) {
+            const polyIndex = navMesh.nodes[getNodeRefIndex(result.nodeRef)].polyIndex;
             const polyHeightResult = getPolyHeight(
                 _moveAlongSurface_polyHeightResult,
-                tileAndPoly.tile,
-                tileAndPoly.poly,
-                tileAndPoly.polyIndex,
+                tile,
+                tile.polys[polyIndex],
+                polyIndex,
                 result.position,
             );
 
@@ -1365,8 +1614,6 @@ export const moveAlongSurface = (
             }
         }
     }
-
-    return result;
 };
 
 const _raycast_vertices: number[] = [];
@@ -1379,6 +1626,7 @@ const _raycast_eDir = vec3.create();
 const _raycast_diff = vec3.create();
 const _raycast_hitNormal_va = vec3.create();
 const _raycast_hitNormal_vb = vec3.create();
+const _raycast_intersectSegmentPoly2DResult = createIntersectSegmentPoly2DResult();
 
 export type RaycastResult = {
     /** The hit parameter along the segment. A value of Number.MAX_VALUE indicates no wall hit. */
@@ -1435,7 +1683,8 @@ const raycastBase = (
     let curRef: NodeRef | null = startNodeRef;
     let prevRefTracking: NodeRef = prevRef;
 
-    const intersectSegmentPoly2DResult = createIntersectSegmentPoly2DResult();
+    const intersectSegmentPoly2DResult = _raycast_intersectSegmentPoly2DResult;
+    const links = navMesh.links;
 
     if (calculateCosts) {
         vec3.sub(_raycast_dir, endPosition, startPosition);
@@ -1444,9 +1693,10 @@ const raycastBase = (
 
     while (curRef !== INVALID_NODE_REF) {
         // get current tile and poly
-        const tileAndPolyResult = getTileAndPolyByRef(curRef, navMesh);
-        if (!tileAndPolyResult.success) break;
-        const { tile, poly } = tileAndPolyResult;
+        const tile = getPolyRefTile(navMesh, curRef);
+        if (!tile) break;
+        const curNode = navMesh.nodes[getNodeRefIndex(curRef)];
+        const poly = tile.polys[curNode.polyIndex];
 
         // collect current poly vertices
         const nv = poly.vertices.length;
@@ -1465,18 +1715,22 @@ const raycastBase = (
             return result;
         }
 
-        result.hitEdgeIndex = intersectSegmentPoly2DResult.segMax;
+        // read before any filter callback, which may cast rays of its own
+        const segMax = intersectSegmentPoly2DResult.segMax;
+        const tmax = intersectSegmentPoly2DResult.tmax;
+
+        result.hitEdgeIndex = segMax;
 
         // keep track of furthest t so far
-        if (intersectSegmentPoly2DResult.tmax > result.t) {
-            result.t = intersectSegmentPoly2DResult.tmax;
+        if (tmax > result.t) {
+            result.t = tmax;
         }
 
         // add polygon to visited
         result.path.push(curRef);
 
         // ray end is completely inside the polygon
-        if (intersectSegmentPoly2DResult.segMax === -1) {
+        if (segMax === -1) {
             result.t = Number.MAX_VALUE;
 
             if (calculateCosts) {
@@ -1490,20 +1744,19 @@ const raycastBase = (
         // follow neighbors
         let nextRef: NodeRef | undefined;
 
-        const curNode = getNodeByRef(navMesh, curRef);
+        const curLinks = curNode.links;
 
-        for (const linkIndex of curNode.links) {
-            const link = navMesh.links[linkIndex];
+        for (let i = 0; i < curLinks.length; i++) {
+            const link = links[curLinks[i]];
 
             // find link which contains this edge
-            if (link.edge !== intersectSegmentPoly2DResult.segMax) continue;
+            if (link.edge !== segMax) continue;
 
             // skip off-mesh connections
             if (getNodeRefType(link.toNodeRef) === NodeType.OFFMESH) continue;
 
             // get pointer to the next polygon
-            const nextTileAndPolyResult = getTileAndPolyByRef(link.toNodeRef, navMesh);
-            if (!nextTileAndPolyResult.success) continue;
+            if (!getPolyRefTile(navMesh, link.toNodeRef)) continue;
 
             // skip links based on filter
             if (!filter.passFilter(link.toNodeRef, navMesh)) continue;
@@ -1521,21 +1774,25 @@ const raycastBase = (
             }
 
             // check for partial edge links
-            const v0 = poly.vertices[link.edge];
-            const v1 = poly.vertices[(link.edge + 1) % poly.vertices.length];
-            const left = [tile.vertices[v0 * 3], tile.vertices[v0 * 3 + 1], tile.vertices[v0 * 3 + 2]] as Vec3;
-            const right = [tile.vertices[v1 * 3], tile.vertices[v1 * 3 + 1], tile.vertices[v1 * 3 + 2]] as Vec3;
+            const v0 = poly.vertices[link.edge] * 3;
+            const v1 = poly.vertices[(link.edge + 1) % poly.vertices.length] * 3;
 
             // check that the intersection lies inside the link portal
             if (link.side === 0 || link.side === 4) {
                 // calculate link size
                 const s = 1.0 / 255.0;
-                let lmin = left[0] + (right[0] - left[0]) * (link.bmin * s);
-                let lmax = left[0] + (right[0] - left[0]) * (link.bmax * s);
-                if (lmin > lmax) [lmin, lmax] = [lmax, lmin];
+                const left = tile.vertices[v0];
+                const right = tile.vertices[v1];
+                let lmin = left + (right - left) * (link.bmin * s);
+                let lmax = left + (right - left) * (link.bmax * s);
+                if (lmin > lmax) {
+                    const swap = lmin;
+                    lmin = lmax;
+                    lmax = swap;
+                }
 
                 // find X intersection
-                const x = startPosition[0] + (endPosition[0] - startPosition[0]) * intersectSegmentPoly2DResult.tmax;
+                const x = startPosition[0] + (endPosition[0] - startPosition[0]) * tmax;
                 if (x >= lmin && x <= lmax) {
                     nextRef = link.toNodeRef;
                     break;
@@ -1543,12 +1800,18 @@ const raycastBase = (
             } else if (link.side === 2 || link.side === 6) {
                 // calculate link size
                 const s = 1.0 / 255.0;
-                let lmin = left[1] + (right[1] - left[1]) * (link.bmin * s);
-                let lmax = left[1] + (right[1] - left[1]) * (link.bmax * s);
-                if (lmin > lmax) [lmin, lmax] = [lmax, lmin];
+                const left = tile.vertices[v0 + 1];
+                const right = tile.vertices[v1 + 1];
+                let lmin = left + (right - left) * (link.bmin * s);
+                let lmax = left + (right - left) * (link.bmax * s);
+                if (lmin > lmax) {
+                    const swap = lmin;
+                    lmin = lmax;
+                    lmax = swap;
+                }
 
                 // find Y intersection
-                const y = startPosition[1] + (endPosition[1] - startPosition[1]) * intersectSegmentPoly2DResult.tmax;
+                const y = startPosition[1] + (endPosition[1] - startPosition[1]) * tmax;
                 if (y >= lmin && y <= lmax) {
                     nextRef = link.toNodeRef;
                     break;
@@ -1560,10 +1823,9 @@ const raycastBase = (
             // no neighbor, we hit a wall
 
             // calculate hit normal
-            if (intersectSegmentPoly2DResult.segMax >= 0) {
-                const a = intersectSegmentPoly2DResult.segMax;
-                const b =
-                    intersectSegmentPoly2DResult.segMax + 1 < poly.vertices.length ? intersectSegmentPoly2DResult.segMax + 1 : 0;
+            if (segMax >= 0) {
+                const a = segMax;
+                const b = segMax + 1 < poly.vertices.length ? segMax + 1 : 0;
                 vec3.fromBuffer(_raycast_hitNormal_va, vertices, a * 3);
                 vec3.fromBuffer(_raycast_hitNormal_vb, vertices, b * 3);
                 const dy = _raycast_hitNormal_vb[1] - _raycast_hitNormal_va[1];
@@ -1591,8 +1853,8 @@ const raycastBase = (
             vec3.scaleAndAdd(_raycast_curPos, startPosition, _raycast_dir, result.t);
 
             // calculate height at the hit point by lerping vertices of the hit edge
-            const e0 = poly.vertices[intersectSegmentPoly2DResult.segMax];
-            const e1 = poly.vertices[(intersectSegmentPoly2DResult.segMax + 1) % poly.vertices.length];
+            const e0 = poly.vertices[segMax];
+            const e1 = poly.vertices[(segMax + 1) % poly.vertices.length];
 
             const e1Offset = e1 * 3;
             const e0Offset = e0 * 3;

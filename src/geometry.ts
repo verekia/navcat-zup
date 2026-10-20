@@ -427,9 +427,6 @@ export const polyMinExtent = (verts: number[], nverts: number): number => {
  * @param v The RHV vector [(y, z, x)]
  * @returns The perp dot product on the xz-plane.
  */
-const vperp2D = (u: Vec3, v: Vec3): number => {
-    return u[0] * v[1] - u[1] * v[0];
-};
 
 export type IntersectSegmentPoly2DResult = {
     intersects: boolean;
@@ -447,11 +444,6 @@ export const createIntersectSegmentPoly2DResult = (): IntersectSegmentPoly2DResu
     segMax: -1,
 });
 
-const _intersectSegmentPoly2DVi = vec3.create();
-const _intersectSegmentPoly2DVj = vec3.create();
-const _intersectSegmentPoly2DDir = vec3.create();
-const _intersectSegmentPoly2DToStart = vec3.create();
-const _intersectSegmentPoly2DEdge = vec3.create();
 
 /**
  * Intersects a segment with a polygon in 2D (ignoring Z).
@@ -476,22 +468,20 @@ export const intersectSegmentPoly2D = (
     result.segMin = -1;
     result.segMax = -1;
 
-    const dir = vec3.subtract(_intersectSegmentPoly2DDir, endPosition, startPosition);
-
-    const vi = _intersectSegmentPoly2DVi;
-    const vj = _intersectSegmentPoly2DVj;
-    const edge = _intersectSegmentPoly2DEdge;
-    const diff = _intersectSegmentPoly2DToStart;
+    const startX = startPosition[0];
+    const startY = startPosition[1];
+    const dirX = endPosition[0] - startX;
+    const dirY = endPosition[1] - startY;
 
     for (let i = 0, j = nv - 1; i < nv; j = i, i++) {
-        vec3.fromBuffer(vi, verts, i * 3);
-        vec3.fromBuffer(vj, verts, j * 3);
+        const vjX = verts[j * 3];
+        const vjY = verts[j * 3 + 1];
+        const edgeX = verts[i * 3] - vjX;
+        const edgeY = verts[i * 3 + 1] - vjY;
 
-        vec3.subtract(edge, vi, vj);
-        vec3.subtract(diff, startPosition, vj);
-
-        const n = vperp2D(edge, diff);
-        const d = vperp2D(dir, edge);
+        // perp products of (edge, start - vj) and (dir, edge)
+        const n = edgeX * (startY - vjY) - edgeY * (startX - vjX);
+        const d = dirX * edgeY - dirY * edgeX;
 
         if (Math.abs(d) < EPS) {
             // S is nearly parallel to this edge
