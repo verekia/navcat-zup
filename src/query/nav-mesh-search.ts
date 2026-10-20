@@ -359,6 +359,8 @@ export type FindNodePathOptions = {
  * @param options Optional configuration for the pathfinding operation.
  * @returns The result of the pathfinding operation.
  */
+const _linkMidPoint = vec3.create();
+
 /** Search nodes of one findNodePath call, keyed by node index and crossing state (0-3). */
 type SearchNodeMap = Map<number, SearchNode>;
 
@@ -500,6 +502,12 @@ export const findNodePath = (
             const neighbourKey = searchNodeKey(neighbourNodeRef, state);
             let neighbourSearchNode = searchNodes.get(neighbourKey);
             if (!neighbourSearchNode) {
+                const midPoint = _linkMidPoint;
+                midPoint[0] = 0;
+                midPoint[1] = 0;
+                midPoint[2] = 0;
+                getLinkMidPoint(navMesh, bestNodeRef, bestNode, link, midPoint);
+
                 neighbourSearchNode = {
                     cost: 0,
                     total: 0,
@@ -508,12 +516,10 @@ export const findNodePath = (
                     nodeRef: neighbourNodeRef,
                     state,
                     flags: 0,
-                    position: [0, 0, 0],
+                    position: [midPoint[0], midPoint[1], midPoint[2]],
                 };
 
                 searchNodes.set(neighbourKey, neighbourSearchNode);
-
-                getLinkMidPoint(navMesh, bestNodeRef, bestNode, link, neighbourSearchNode.position);
             }
 
             // calculate cost and heuristic
