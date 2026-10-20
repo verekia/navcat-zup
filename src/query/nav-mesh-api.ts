@@ -527,11 +527,6 @@ const getDetailTriEdgeFlags = (triFlags: number, edgeIndex: number): number => {
     return (triFlags >> (edgeIndex * 2)) & 0x3;
 };
 
-const _closestPointOnDetailEdges_triangleVertices: Vec3[] = [vec3.create(), vec3.create(), vec3.create()];
-const _closestPointOnDetailEdges_pmin = vec3.create();
-const _closestPointOnDetailEdges_pmax = vec3.create();
-const _closestPointOnDetailEdges_distancePtSegSqr2dResult = createDistancePtSegSqr2dResult();
-
 /**
  * Gets the closest point on detail mesh edges to a given point
  * @param tile The tile containing the detail mesh
@@ -551,72 +546,90 @@ export const getClosestPointOnDetailEdges = (
     onlyBoundary: boolean,
 ): number => {
     const detailMesh = tile.detailMeshes[polyIndex];
+    const detailTriangles = tile.detailTriangles;
+    const tileVertices = tile.vertices;
+    const detailVertices = tile.detailVertices;
+    const polyVertices = poly.vertices;
+    const nv = polyVertices.length;
+    const detailBase = detailMesh.verticesBase - nv;
+    const ANY_BOUNDARY_EDGE = (DETAIL_EDGE_BOUNDARY << 0) | (DETAIL_EDGE_BOUNDARY << 2) | (DETAIL_EDGE_BOUNDARY << 4);
+    const px = pos[0];
+    const py = pos[1];
 
     let dmin = Number.MAX_VALUE;
     let tmin = 0;
 
-    const pmin = vec3.set(_closestPointOnDetailEdges_pmin, 0, 0, 0);
-    const pmax = vec3.set(_closestPointOnDetailEdges_pmax, 0, 0, 0);
+    // endpoints of the closest edge
+    let minAx = 0;
+    let minAy = 0;
+    let minAz = 0;
+    let minBx = 0;
+    let minBy = 0;
+    let minBz = 0;
 
     for (let i = 0; i < detailMesh.trianglesCount; i++) {
         const t = (detailMesh.trianglesBase + i) * 4;
-        const detailTriangles = tile.detailTriangles;
+        const triFlags = detailTriangles[t + 3];
 
         // check if triangle has boundary edges (if onlyBoundary is true)
-        if (onlyBoundary) {
-            const triFlags = detailTriangles[t + 3];
-            const ANY_BOUNDARY_EDGE = (DETAIL_EDGE_BOUNDARY << 0) | (DETAIL_EDGE_BOUNDARY << 2) | (DETAIL_EDGE_BOUNDARY << 4);
-            if ((triFlags & ANY_BOUNDARY_EDGE) === 0) {
-                continue;
-            }
-        }
-
-        // get triangle vertices
-        const triangleVertices = _closestPointOnDetailEdges_triangleVertices;
-        for (let j = 0; j < 3; ++j) {
-            const vertexIndex = detailTriangles[t + j];
-            if (vertexIndex < poly.vertices.length) {
-                // use main polygon vertices - vertexIndex is an index into poly.vertices
-                vec3.fromBuffer(triangleVertices[j], tile.vertices, poly.vertices[vertexIndex] * 3);
-            } else {
-                // use detail vertices - (vertexIndex - poly.vertices.length) gives offset from verticesBase
-                const detailIndex = (detailMesh.verticesBase + (vertexIndex - poly.vertices.length)) * 3;
-                vec3.fromBuffer(triangleVertices[j], tile.detailVertices, detailIndex);
-            }
+        if (onlyBoundary && (triFlags & ANY_BOUNDARY_EDGE) === 0) {
+            continue;
         }
 
         // check each edge of the triangle
         for (let k = 0, j = 2; k < 3; j = k++) {
-            const triFlags = detailTriangles[t + 3];
             const edgeFlags = getDetailTriEdgeFlags(triFlags, j);
+            const ij = detailTriangles[t + j];
+            const ik = detailTriangles[t + k];
 
             // skip internal edges if we want only boundaries, or skip duplicate internal edges
-            if ((edgeFlags & DETAIL_EDGE_BOUNDARY) === 0 && (onlyBoundary || detailTriangles[t + j] < detailTriangles[t + k])) {
+            if ((edgeFlags & DETAIL_EDGE_BOUNDARY) === 0 && (onlyBoundary || ij < ik)) {
                 // only looking at boundary edges and this is internal, or
                 // this is an inner edge that we will see again or have already seen.
                 continue;
             }
 
-            const result = distancePtSegSqr2d(
-                _closestPointOnDetailEdges_distancePtSegSqr2dResult,
-                pos,
-                triangleVertices[j],
-                triangleVertices[k],
-            );
+            // edge vertices: poly vertices first, then the poly's detail vertices
+            const vj = ij < nv ? tileVertices : detailVertices;
+            const vk = ik < nv ? tileVertices : detailVertices;
+            const a = (ij < nv ? polyVertices[ij] : detailBase + ij) * 3;
+            const b = (ik < nv ? polyVertices[ik] : detailBase + ik) * 3;
+            const ax = vj[a];
+            const ay = vj[a + 1];
+            const bx = vk[b];
+            const by = vk[b + 1];
 
-            if (result.distSqr < dmin) {
-                dmin = result.distSqr;
-                tmin = result.t;
-                vec3.copy(pmin, triangleVertices[j]);
-                vec3.copy(pmax, triangleVertices[k]);
+            // distancePtSegSqr2d(pos, a, b)
+            const pqy = by - ay;
+            const pqx = bx - ax;
+            const dy = py - ay;
+            const dx = px - ax;
+            const d = pqy * pqy + pqx * pqx;
+            let segT = pqy * dy + pqx * dx;
+            if (d > 0) segT /= d;
+            if (segT < 0) segT = 0;
+            else if (segT > 1) segT = 1;
+            const distY = ay + segT * pqy - py;
+            const distX = ax + segT * pqx - px;
+            const distSqr = distY * distY + distX * distX;
+
+            if (distSqr < dmin) {
+                dmin = distSqr;
+                tmin = segT;
+                minAx = ax;
+                minAy = ay;
+                minAz = vj[a + 2];
+                minBx = bx;
+                minBy = by;
+                minBz = vk[b + 2];
             }
         }
     }
 
     // interpolate the final closest point
-    if (pmin && pmax) {
-        vec3.lerp(outClosestPoint, pmin, pmax, tmin);
-    }
+    outClosestPoint[0] = minAx + tmin * (minBx - minAx);
+    outClosestPoint[1] = minAy + tmin * (minBy - minAy);
+    outClosestPoint[2] = minAz + tmin * (minBz - minAz);
 
     return dmin;
 };
