@@ -361,8 +361,50 @@ export type FindNodePathOptions = {
  */
 const _linkMidPoint = vec3.create();
 
-/** Search nodes of one findNodePath call, keyed by node index and crossing state (0-3). */
-type SearchNodeMap = Map<number, SearchNode>;
+/**
+ * Search nodes of a findNodePath call, at node index * 4 + crossing state (0-3).
+ * Reused across calls: a slot belongs to the current search when its stamp equals the epoch.
+ */
+type SearchNodeSlots = {
+    epoch: number;
+    stamps: Int32Array;
+    nodes: (SearchNode | undefined)[];
+    inUse: boolean;
+};
+
+const createSearchNodeSlots = (): SearchNodeSlots => ({ epoch: 0, stamps: new Int32Array(0), nodes: [], inUse: false });
+
+const _searchNodeSlots = createSearchNodeSlots();
+
+const acquireSearchNodeSlots = (navMesh: NavMesh): SearchNodeSlots => {
+    // a filter callback that runs a search of its own gets fresh slots
+    const slots = _searchNodeSlots.inUse ? createSearchNodeSlots() : _searchNodeSlots;
+    const size = navMesh.nodes.length * 4;
+
+    if (slots.stamps.length < size) {
+        slots.stamps = new Int32Array(size);
+        slots.nodes = new Array(size).fill(undefined);
+    }
+
+    if (slots.epoch === 0x7fffffff) {
+        slots.stamps.fill(0);
+        slots.epoch = 0;
+    }
+
+    slots.epoch++;
+    slots.inUse = true;
+
+    return slots;
+};
+
+const releaseSearchNodeSlots = (slots: SearchNodeSlots, searchNodes: SearchNode[]): void => {
+    const nodes = slots.nodes;
+    for (let i = 0; i < searchNodes.length; i++) {
+        const node = searchNodes[i];
+        nodes[searchNodeKey(node.nodeRef, node.state)] = undefined;
+    }
+    slots.inUse = false;
+};
 
 const searchNodeKey = (nodeRef: NodeRef, state: number): number => getNodeRefIndex(nodeRef) * 4 + state;
 
@@ -370,7 +412,7 @@ const createFindNodePathResult = (
     flags: FindNodePathResultFlags,
     success: boolean,
     path: NodeRef[],
-    searchNodes: SearchNodeMap,
+    searchNodes: SearchNode[],
     openList: SearchNodeQueue,
 ): FindNodePathResult => {
     let nodes: SearchNodePool | undefined;
@@ -382,7 +424,7 @@ const createFindNodePathResult = (
         get nodes(): SearchNodePool {
             if (!nodes) {
                 nodes = {};
-                for (const node of searchNodes.values()) addSearchNode(nodes, node);
+                for (let i = 0; i < searchNodes.length; i++) addSearchNode(nodes, searchNodes[i]);
             }
             return nodes;
         },
@@ -401,8 +443,7 @@ export const findNodePath = (
     filter: QueryFilter,
     options?: FindNodePathOptions,
 ): FindNodePathResult => {
-    const raycastDistance = options?.raycastDistance ?? 0;
-    const searchNodes: SearchNodeMap = new Map();
+    const searchNodes: SearchNode[] = [];
     const openList: SearchNodeQueue = [];
 
     // validate input
@@ -432,12 +473,77 @@ export const findNodePath = (
         );
     }
 
-    // prepare search
+    const slots = acquireSearchNodeSlots(navMesh);
+    try {
+        const lastBestNode = searchNodePath(
+            navMesh,
+            slots,
+            searchNodes,
+            openList,
+            startNodeRef,
+            endNodeRef,
+            startPosition,
+            endPosition,
+            filter,
+            options?.raycastDistance ?? 0,
+        );
+
+        // assemble the path to the node
+        const path: NodeRef[] = [];
+        let currentNode: SearchNode | undefined = lastBestNode;
+
+        while (currentNode) {
+            path.push(currentNode.nodeRef);
+
+            if (currentNode.parentNodeRef !== null && currentNode.parentState !== null) {
+                const key = searchNodeKey(currentNode.parentNodeRef, currentNode.parentState);
+                currentNode = slots.stamps[key] === slots.epoch ? slots.nodes[key] : undefined;
+            } else {
+                currentNode = undefined;
+            }
+        }
+
+        path.reverse();
+
+        // if the end node was not reached, return with the partial result status
+        if (lastBestNode.nodeRef !== endNodeRef) {
+            return createFindNodePathResult(FindNodePathResultFlags.PARTIAL_PATH, true, path, searchNodes, openList);
+        }
+
+        // the path is complete, return with the complete path status
+        return createFindNodePathResult(
+            FindNodePathResultFlags.SUCCESS | FindNodePathResultFlags.COMPLETE_PATH,
+            true,
+            path,
+            searchNodes,
+            openList,
+        );
+    } finally {
+        releaseSearchNodeSlots(slots, searchNodes);
+    }
+};
+
+/** The A* loop of findNodePath. Returns the node reached, or the one nearest the end. */
+const searchNodePath = (
+    navMesh: NavMesh,
+    slots: SearchNodeSlots,
+    searchNodes: SearchNode[],
+    openList: SearchNodeQueue,
+    startNodeRef: NodeRef,
+    endNodeRef: NodeRef,
+    startPosition: Vec3,
+    endPosition: Vec3,
+    filter: QueryFilter,
+    raycastDistance: number,
+): SearchNode => {
     const getCost = filter.getCost;
     const links = navMesh.links;
     const endX = endPosition[0];
     const endY = endPosition[1];
     const endZ = endPosition[2];
+    const epoch = slots.epoch;
+    const stamps = slots.stamps;
+    const slotNodes = slots.nodes;
 
     const startNode: SearchNode = {
         cost: 0,
@@ -450,7 +556,10 @@ export const findNodePath = (
         position: [startPosition[0], startPosition[1], startPosition[2]],
     };
 
-    searchNodes.set(searchNodeKey(startNodeRef, 0), startNode);
+    const startKey = searchNodeKey(startNodeRef, 0);
+    stamps[startKey] = epoch;
+    slotNodes[startKey] = startNode;
+    searchNodes.push(startNode);
     pushNodeToQueue(openList, startNode);
 
     let lastBestNode: SearchNode = startNode;
@@ -500,7 +609,7 @@ export const findNodePath = (
 
             // get the neighbour node
             const neighbourKey = searchNodeKey(neighbourNodeRef, state);
-            let neighbourSearchNode = searchNodes.get(neighbourKey);
+            let neighbourSearchNode = stamps[neighbourKey] === epoch ? slotNodes[neighbourKey] : undefined;
             if (!neighbourSearchNode) {
                 const midPoint = _linkMidPoint;
                 midPoint[0] = 0;
@@ -519,7 +628,9 @@ export const findNodePath = (
                     position: [midPoint[0], midPoint[1], midPoint[2]],
                 };
 
-                searchNodes.set(neighbourKey, neighbourSearchNode);
+                stamps[neighbourKey] = epoch;
+                slotNodes[neighbourKey] = neighbourSearchNode;
+                searchNodes.push(neighbourSearchNode);
             }
 
             // calculate cost and heuristic
@@ -536,7 +647,8 @@ export const findNodePath = (
                 bestSearchNode.parentState !== null
             ) {
                 // get grandparent node for potential raycast shortcut
-                const grandparentNode = searchNodes.get(searchNodeKey(parentNodeRef, bestSearchNode.parentState));
+                const grandparentKey = searchNodeKey(parentNodeRef, bestSearchNode.parentState);
+                const grandparentNode = stamps[grandparentKey] === epoch ? slotNodes[grandparentKey] : undefined;
 
                 if (grandparentNode) {
                     const rayLength = vec3.distance(grandparentNode.position, neighbourSearchNode.position);
@@ -636,35 +748,7 @@ export const findNodePath = (
         }
     }
 
-    // assemble the path to the node
-    const path: NodeRef[] = [];
-    let currentNode: SearchNode | undefined = lastBestNode;
-
-    while (currentNode) {
-        path.push(currentNode.nodeRef);
-
-        if (currentNode.parentNodeRef !== null && currentNode.parentState !== null) {
-            currentNode = searchNodes.get(searchNodeKey(currentNode.parentNodeRef, currentNode.parentState));
-        } else {
-            currentNode = undefined;
-        }
-    }
-
-    path.reverse();
-
-    // if the end node was not reached, return with the partial result status
-    if (lastBestNode.nodeRef !== endNodeRef) {
-        return createFindNodePathResult(FindNodePathResultFlags.PARTIAL_PATH, true, path, searchNodes, openList);
-    }
-
-    // the path is complete, return with the complete path status
-    return createFindNodePathResult(
-        FindNodePathResultFlags.SUCCESS | FindNodePathResultFlags.COMPLETE_PATH,
-        true,
-        path,
-        searchNodes,
-        openList,
-    );
+    return lastBestNode;
 };
 
 export enum SlicedFindNodePathStatusFlags {
