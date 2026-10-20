@@ -13,7 +13,7 @@
 
 - feat: update mathcat to v0.1.0
 - feat: replace `mathcat` dependency with the API-compatible `math` package (canary)
-- perf (navcat-zup): faster queries for agents that re-path every tick, with bit-identical results. `findNodePath` keeps its search nodes in an epoch-stamped slot index and takes portal midpoints from the link it expands; `findNearestPoly`, `getClosestPointOnPoly`, `findStraightPath`, `raycast`, `moveAlongSurface` and `getClosestPointOnDetailEdges` stop allocating per call and read poly vertices in place. On JSC (Bun): `findPath` -30%, `findNearestPoly` -27%, `raycast` -26%, `moveAlongSurface` -45%; on V8: -15% to -32%
+- perf (navcat-zup): faster queries for agents that re-path every tick, with bit-identical results. `findNodePath` keeps its search nodes in an epoch-stamped slot index and takes portal midpoints from the link it expands; `findNearestPoly`, `getClosestPointOnPoly`, `findStraightPath`, `raycast`, `moveAlongSurface` and `getClosestPointOnDetailEdges` stop allocating per call and read poly vertices in place. On JSC (Bun): `findPath` -30%, `findNearestPoly` -26%, `raycast` -26%, `moveAlongSurface` -38%; on V8: -13% to -29%
 - change (navcat-zup): the `nodes` pool of a `findNodePath` result is built on first access through a getter, so spreading a result no longer copies it (`JSON.stringify` still includes it)
 
 ## 0.4.1
