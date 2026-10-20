@@ -1385,7 +1385,33 @@ export const moveAlongSurface = (
 
     result.success = true;
 
-    const nodes: SearchNodePool = {};
+    const searchNodes: SearchNode[] = [];
+    const slots = acquireSearchNodeSlots(navMesh);
+
+    try {
+        moveAlongSurfaceSearch(navMesh, slots, searchNodes, startNodeRef, startPosition, endPosition, filter, result);
+    } finally {
+        releaseSearchNodeSlots(slots, searchNodes);
+    }
+
+    return result;
+};
+
+/** The breadth-first search of moveAlongSurface, writing its outcome into `result`. */
+const moveAlongSurfaceSearch = (
+    navMesh: NavMesh,
+    slots: SearchNodeSlots,
+    searchNodes: SearchNode[],
+    startNodeRef: NodeRef,
+    startPosition: Vec3,
+    endPosition: Vec3,
+    filter: QueryFilter,
+    result: MoveAlongSurfaceResult,
+): void => {
+    const epoch = slots.epoch;
+    const stamps = slots.stamps;
+    const slotNodes = slots.nodes;
+    const links = navMesh.links;
 
     const startNode: SearchNode = {
         cost: 0,
@@ -1398,7 +1424,10 @@ export const moveAlongSurface = (
         position: [startPosition[0], startPosition[1], startPosition[2]],
     };
 
-    addSearchNode(nodes, startNode);
+    const startKey = searchNodeKey(startNodeRef, 0);
+    stamps[startKey] = epoch;
+    slotNodes[startKey] = startNode;
+    searchNodes.push(startNode);
 
     const bestPos = vec3.clone(startPosition);
     let bestDist = Infinity;
@@ -1411,17 +1440,23 @@ export const moveAlongSurface = (
 
     // breadth-first search queue (no priority needed for this algorithm)
     const queue: SearchNodeQueue = [startNode];
+    let queueHead = 0;
 
-    while (queue.length > 0) {
-        const curNode = queue.shift()!;
+    // neighbours across the current edge
+    const neis: NodeRef[] = [];
+
+    while (queueHead < queue.length) {
+        const curNode = queue[queueHead++];
 
         // get poly and tile
         const curRef = curNode.nodeRef;
-        const tileAndPoly = getTileAndPolyByRef(curRef, navMesh);
+        const tile = getPolyRefTile(navMesh, curRef);
 
-        if (!tileAndPoly.success) continue;
+        if (!tile) continue;
 
-        const { tile, poly } = tileAndPoly;
+        const node = navMesh.nodes[getNodeRefIndex(curRef)];
+        const poly = tile.polys[node.polyIndex];
+        const nodeLinks = node.links;
 
         // collect vertices
         const nv = poly.vertices.length;
@@ -1443,11 +1478,10 @@ export const moveAlongSurface = (
         // find wall edges and find nearest point inside the walls
         for (let i = 0, j = nv - 1; i < nv; j = i++) {
             // find links to neighbours
-            const neis: NodeRef[] = [];
-            const node = getNodeByRef(navMesh, curRef);
+            neis.length = 0;
 
-            for (const linkIndex of node.links) {
-                const link = navMesh.links[linkIndex];
+            for (let l = 0; l < nodeLinks.length; l++) {
+                const link = links[nodeLinks[l]];
                 if (!link) continue;
 
                 const neighbourRef = link.toNodeRef;
@@ -1477,8 +1511,10 @@ export const moveAlongSurface = (
                     bestNode = curNode;
                 }
             } else {
-                for (const neighbourRef of neis) {
-                    let neighbourNode = getSearchNode(nodes, neighbourRef, 0);
+                for (let n = 0; n < neis.length; n++) {
+                    const neighbourRef = neis[n];
+                    const neighbourKey = searchNodeKey(neighbourRef, 0);
+                    let neighbourNode = stamps[neighbourKey] === epoch ? slotNodes[neighbourKey] : undefined;
 
                     if (!neighbourNode) {
                         neighbourNode = {
@@ -1491,7 +1527,9 @@ export const moveAlongSurface = (
                             flags: 0,
                             position: [endPosition[0], endPosition[1], endPosition[2]],
                         };
-                        addSearchNode(nodes, neighbourNode);
+                        stamps[neighbourKey] = epoch;
+                        slotNodes[neighbourKey] = neighbourNode;
+                        searchNodes.push(neighbourNode);
                     }
 
                     // skip if already visited
@@ -1516,14 +1554,15 @@ export const moveAlongSurface = (
     }
 
     if (bestNode) {
-        let currentNode: SearchNode | null = bestNode;
+        let currentNode: SearchNode | undefined = bestNode;
         while (currentNode) {
             result.visited.push(currentNode.nodeRef);
 
             if (currentNode.parentNodeRef !== null) {
-                currentNode = getSearchNode(nodes, currentNode.parentNodeRef, 0) ?? null;
+                const key = searchNodeKey(currentNode.parentNodeRef, 0);
+                currentNode = stamps[key] === epoch ? slotNodes[key] : undefined;
             } else {
-                currentNode = null;
+                currentNode = undefined;
             }
         }
 
@@ -1533,14 +1572,15 @@ export const moveAlongSurface = (
         result.nodeRef = bestNode.nodeRef;
 
         // fixup height with getPolyHeight
-        const tileAndPoly = getTileAndPolyByRef(result.nodeRef, navMesh);
+        const tile = getPolyRefTile(navMesh, result.nodeRef);
 
-        if (tileAndPoly.success) {
+        if (tile) {
+            const polyIndex = navMesh.nodes[getNodeRefIndex(result.nodeRef)].polyIndex;
             const polyHeightResult = getPolyHeight(
                 _moveAlongSurface_polyHeightResult,
-                tileAndPoly.tile,
-                tileAndPoly.poly,
-                tileAndPoly.polyIndex,
+                tile,
+                tile.polys[polyIndex],
+                polyIndex,
                 result.position,
             );
 
@@ -1549,8 +1589,6 @@ export const moveAlongSurface = (
             }
         }
     }
-
-    return result;
 };
 
 const _raycast_vertices: number[] = [];
