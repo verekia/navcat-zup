@@ -413,31 +413,56 @@ const releaseSearchNodeSlots = (slots: SearchNodeSlots, searchNodes: SearchNode[
 
 const searchNodeKey = (nodeRef: NodeRef, state: number): number => getNodeRefIndex(nodeRef) * 4 + state;
 
+/** A findNodePath result whose `nodes` pool is built on first access. */
+class FindNodePathResultWithLazyNodes implements FindNodePathResult {
+    flags: FindNodePathResultFlags;
+    success: boolean;
+    path: NodeRef[];
+    openList: SearchNodeQueue;
+    #searchNodes: SearchNode[];
+    #nodes: SearchNodePool | undefined;
+
+    constructor(
+        flags: FindNodePathResultFlags,
+        success: boolean,
+        path: NodeRef[],
+        searchNodes: SearchNode[],
+        openList: SearchNodeQueue,
+    ) {
+        this.flags = flags;
+        this.success = success;
+        this.path = path;
+        this.openList = openList;
+        this.#searchNodes = searchNodes;
+        this.#nodes = undefined;
+    }
+
+    get nodes(): SearchNodePool {
+        if (!this.#nodes) {
+            const nodes: SearchNodePool = {};
+            const searchNodes = this.#searchNodes;
+            for (let i = 0; i < searchNodes.length; i++) addSearchNode(nodes, searchNodes[i]);
+            this.#nodes = nodes;
+        }
+        return this.#nodes;
+    }
+
+    set nodes(value: SearchNodePool) {
+        this.#nodes = value;
+    }
+
+    toJSON(): FindNodePathResult {
+        return { flags: this.flags, success: this.success, path: this.path, nodes: this.nodes, openList: this.openList };
+    }
+}
+
 const createFindNodePathResult = (
     flags: FindNodePathResultFlags,
     success: boolean,
     path: NodeRef[],
     searchNodes: SearchNode[],
     openList: SearchNodeQueue,
-): FindNodePathResult => {
-    let nodes: SearchNodePool | undefined;
-    return {
-        flags,
-        success,
-        path,
-        openList,
-        get nodes(): SearchNodePool {
-            if (!nodes) {
-                nodes = {};
-                for (let i = 0; i < searchNodes.length; i++) addSearchNode(nodes, searchNodes[i]);
-            }
-            return nodes;
-        },
-        set nodes(value: SearchNodePool) {
-            nodes = value;
-        },
-    };
-};
+): FindNodePathResult => new FindNodePathResultWithLazyNodes(flags, success, path, searchNodes, openList);
 
 export const findNodePath = (
     navMesh: NavMesh,
