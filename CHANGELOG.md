@@ -7,12 +7,15 @@
 - The conversion is a pure axis rotation (old X → new Y, old Y → new Z, old Z → new X), so handedness, winding conventions, and all algorithm behaviour are preserved exactly; z-up outputs are bit-identical rotations of the original y-up outputs
 - Input triangle winding: floor triangles should wind counter-clockwise when viewed from above (+Z), giving a +Z normal
 - Package renamed from `navcat` to `navcat-zup` (entrypoints: `navcat-zup`, `navcat-zup/blocks`, `navcat-zup/three`)
-- Versions below track the upstream navcat releases this fork is based on
+- Versions below track the upstream navcat releases this fork is based on, except 0.4.2, a fork release that also carries upstream's unreleased 0.5.0 work
 
-## 0.5.0 (Unreleased)
+## 0.4.2
 
+- navcat-zup release: upstream navcat's unreleased 0.5.0 work (its `dev` branch) plus a query perf pass
 - feat: update mathcat to v0.1.0
-- feat: replace `mathcat` dependency with the API-compatible `math` package (canary)
+- feat: replace `mathcat` dependency with the API-compatible `math` package (`^0.1.0`)
+- perf: tighten heightfield dividePoly clipping inner loop
+- build (navcat-zup): rollup treats `math` and its subpaths as external, so `math` is not bundled into `dist`
 - perf (navcat-zup): faster queries for agents that re-path every tick, with bit-identical results. `findNodePath` keeps its search nodes in an epoch-stamped slot index and takes portal midpoints from the link it expands; `findNearestPoly`, `getClosestPointOnPoly`, `findStraightPath`, `raycast`, `moveAlongSurface` and `getClosestPointOnDetailEdges` stop allocating per call and read poly vertices in place. On JSC (Bun): `findPath` -30%, `findNearestPoly` -26%, `raycast` -26%, `moveAlongSurface` -38%; on V8: -13% to -29%
 - change (navcat-zup): the `nodes` pool of a `findNodePath` result is built on first access through a getter, so spreading a result no longer copies it (`JSON.stringify` still includes it)
 

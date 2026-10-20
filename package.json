@@ -1,6 +1,6 @@
 {
     "name": "navcat-zup",
-    "version": "0.4.1",
+    "version": "0.4.2",
     "author": "Isaac Mason <isaac@isaacmason.com>",
     "description": "Z-up fork of navcat: a javascript navigation mesh construction and querying library for 3D floor-based navigation.",
     "keywords": [],
